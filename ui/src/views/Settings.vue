@@ -37,10 +37,14 @@
               v-model.trim="host"
               :helper-text="$t('settings.host_helper')"
               :invalid-message="$t(error.host)"
-              :disabled="stillLoading"
+              :disabled="stillLoading || hasAccounts"
               class="mg-bottom maxwidth"
               ref="host"
-            />
+            >
+              <template #tooltip>
+                {{ $t("settings.host_tooltip") }}
+              </template>
+            </NsTextInput>
             <NsTextInput
               type="number"
               min="1024"
@@ -71,18 +75,21 @@
               </template>
             </NsTextInput>
             <label class="bx--label">{{ $t("settings.auth_mode") }}</label>
+            <p v-if="hasAccounts" class="bx--form__helper-text mg-bottom-sm">
+              {{ $t("settings.auth_mode_locked") }}
+            </p>
             <cv-radio-group vertical class="mg-bottom">
               <cv-radio-button
                 v-model="authMode"
                 value="certificate_password"
                 :label="$t('settings.auth_certificate_password')"
-                :disabled="stillLoading"
+                :disabled="stillLoading || hasAccounts"
               />
               <cv-radio-button
                 v-model="authMode"
                 value="certificate"
                 :label="$t('settings.auth_certificate')"
-                :disabled="stillLoading"
+                :disabled="stillLoading || hasAccounts"
               />
             </cv-radio-group>
             <template v-if="authMode === 'certificate_password'">

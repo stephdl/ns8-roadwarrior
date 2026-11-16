@@ -120,6 +120,9 @@
                   />
                   <span v-else>-</span>
                 </cv-data-table-cell>
+                <cv-data-table-cell>{{
+                  formatTimestamp(row.last_login)
+                }}</cv-data-table-cell>
                 <cv-data-table-cell class="table-overflow-menu-cell">
                   <cv-overflow-menu flip-menu class="table-overflow-menu">
                     <cv-overflow-menu-item
@@ -129,6 +132,12 @@
                       <NsMenuItem
                         :icon="Download20"
                         :label="$t('accounts.download_profile')"
+                      />
+                    </cv-overflow-menu-item>
+                    <cv-overflow-menu-item @click="showHistoryModal(row)">
+                      <NsMenuItem
+                        :icon="RecentlyViewed20"
+                        :label="$t('accounts.login_history')"
                       />
                     </cv-overflow-menu-item>
                     <cv-overflow-menu-item
@@ -340,6 +349,71 @@
       }}</template>
       <template slot="primary-button">{{ $t("accounts.reset") }}</template>
     </NsModal>
+    <!-- login history -->
+    <NsModal
+      size="large"
+      :visible="isShownHistoryModal"
+      :primary-button-disabled="loading.getLoginHistory || !history.length"
+      @modal-hidden="isShownHistoryModal = false"
+      @primary-click="downloadHistory"
+    >
+      <template slot="title">{{
+        $t("accounts.login_history_title", { name: currentAccount })
+      }}</template>
+      <template slot="content">
+        <NsInlineNotification
+          v-if="error.getLoginHistory"
+          kind="error"
+          :title="$t('action.get-login-history')"
+          :description="error.getLoginHistory"
+          :showCloseButton="false"
+        />
+        <NsDataTable
+          :allRows="history"
+          :columns="i18nHistoryColumns"
+          :rawColumns="historyColumns"
+          :sortable="false"
+          :pageSizes="[10, 25, 50, 100]"
+          :isSearchable="false"
+          :isLoading="loading.getLoginHistory"
+          :skeletonRows="5"
+          :emptyStateTitle="$t('accounts.no_history')"
+          :emptyStateDescription="$t('accounts.no_history_description')"
+          :itemsPerPageLabel="core.$t('pagination.items_per_page')"
+          :rangeOfTotalItemsLabel="core.$t('pagination.range_of_total_items')"
+          :ofTotalPagesLabel="core.$t('pagination.of_total_pages')"
+          :backwardText="core.$t('pagination.previous_page')"
+          :forwardText="core.$t('pagination.next_page')"
+          :pageNumberLabel="core.$t('pagination.page_number')"
+          @updatePage="historyPage = $event"
+        >
+          <template slot="data">
+            <cv-data-table-row
+              v-for="(event, index) in historyPage"
+              :key="index"
+            >
+              <cv-data-table-cell>{{
+                formatTimestamp(event.time)
+              }}</cv-data-table-cell>
+              <cv-data-table-cell>
+                <NsTag
+                  :label="$t('accounts.event_' + event.event)"
+                  :kind="eventKind(event.event)"
+                />
+              </cv-data-table-cell>
+              <cv-data-table-cell>{{
+                event.address || "-"
+              }}</cv-data-table-cell>
+              <cv-data-table-cell>{{ eventDetail(event) }}</cv-data-table-cell>
+            </cv-data-table-row>
+          </template>
+        </NsDataTable>
+      </template>
+      <template slot="secondary-button">{{ core.$t("common.close") }}</template>
+      <template slot="primary-button">{{
+        $t("accounts.download_json")
+      }}</template>
+    </NsModal>
     <!-- remove -->
     <NsDangerDeleteModal
       :isShown="isShownRemoveModal"
@@ -370,9 +444,11 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 import ModuleTask from "@/mixins/moduleTask";
+import { createSealKey, openSealed } from "@/lib/seal";
 import Download20 from "@carbon/icons-vue/es/download/20";
 import Password20 from "@carbon/icons-vue/es/password/20";
 import Logout20 from "@carbon/icons-vue/es/logout/20";
+import RecentlyViewed20 from "@carbon/icons-vue/es/recently-viewed/20";
 
 export default {
   name: "Accounts",
@@ -396,6 +472,11 @@ export default {
       Download20,
       Password20,
       Logout20,
+      RecentlyViewed20,
+      history: [],
+      historyPage: [],
+      historyColumns: ["time", "event", "address", "detail"],
+      isShownHistoryModal: false,
       configured: false,
       authMode: "certificate_password",
       totpRequired: false,
@@ -421,6 +502,7 @@ export default {
         confirmTotp: false,
         resetTotp: false,
         removeAccount: false,
+        getLoginHistory: false,
       },
       error: {
         listAccounts: "",
@@ -428,6 +510,7 @@ export default {
         enrollTotp: "",
         confirmTotp: "",
         removeAccount: "",
+        getLoginHistory: "",
         action: "",
         actionTitle: "",
         name: "",
@@ -445,7 +528,12 @@ export default {
       if (this.passwordMode) {
         columns.push("totp");
       }
-      return columns.concat(["session"]);
+      return columns.concat(["session", "last_login"]);
+    },
+    i18nHistoryColumns() {
+      return this.historyColumns.map((column) =>
+        this.$t("accounts.history_" + column)
+      );
     },
     i18nTableColumns() {
       return this.tableColumns.map((column) =>
@@ -574,20 +662,77 @@ export default {
         },
       });
     },
+    formatTimestamp(seconds) {
+      return seconds ? new Date(seconds * 1000).toLocaleString() : "-";
+    },
+    eventKind(event) {
+      return (
+        { login: "green", logout: "gray", refused: "red" }[event] || "gray"
+      );
+    },
+    eventDetail(event) {
+      if (event.event === "refused") {
+        return this.$t("accounts.reason_" + event.reason);
+      }
+      if (event.event === "logout") {
+        return this.$t("accounts.session_summary", {
+          duration: this.$options.filters.secondsFormat(event.duration),
+          received: this.$options.filters.byteFormat(event.bytes_received),
+          sent: this.$options.filters.byteFormat(event.bytes_sent),
+        });
+      }
+      return event.vpn_address || "-";
+    },
+    showHistoryModal(row) {
+      this.currentAccount = row.name;
+      this.history = [];
+      this.error.getLoginHistory = "";
+      this.isShownHistoryModal = true;
+      this.loading.getLoginHistory = true;
+      this.runModuleTask({
+        action: "get-login-history",
+        data: { name: row.name },
+        isNotificationHidden: true,
+        completed: (result) => {
+          this.history = result.events;
+          this.loading.getLoginHistory = false;
+        },
+        aborted: (message) => {
+          this.error.getLoginHistory = message;
+          this.loading.getLoginHistory = false;
+        },
+        failed: (message) => {
+          this.error.getLoginHistory = message;
+          this.loading.getLoginHistory = false;
+        },
+      });
+    },
+    downloadHistory() {
+      const blob = new Blob([JSON.stringify(this.history, null, 2)], {
+        type: "application/json",
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${this.currentAccount}-login-history.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    },
     actionFailed(action) {
       return (message) => {
         this.error.actionTitle = this.$t("action." + action);
         this.error.action = message;
       };
     },
-    downloadProfile(row) {
+    async downloadProfile(row) {
       this.error.action = "";
+      const seal = await createSealKey();
       this.runModuleTask({
         action: "download-client-config",
-        data: { name: row.name },
+        data: { name: row.name, public_key: seal.publicKey },
         // The profile holds the private key of the client
         isNotificationHidden: true,
-        completed: (result) => {
+        completed: async (sealed) => {
+          const result = await openSealed(sealed, seal.privateKey);
           const blob = new Blob([result.profile], {
             type: "application/x-openvpn-profile",
           });
@@ -606,7 +751,7 @@ export default {
         failed: this.actionFailed("download-client-config"),
       });
     },
-    startEnrollment(row) {
+    async startEnrollment(row) {
       this.totpAccount = row.name;
       this.totpCode = "";
       this.enrollment = null;
@@ -616,11 +761,13 @@ export default {
       this.error.code = "";
       this.isShownTotpModal = true;
       this.loading.enrollTotp = true;
+      const seal = await createSealKey();
       this.runModuleTask({
         action: "enroll-totp",
-        data: { name: row.name },
+        data: { name: row.name, public_key: seal.publicKey },
         isNotificationHidden: true,
-        completed: async (result) => {
+        completed: async (sealed) => {
+          const result = await openSealed(sealed, seal.privateKey);
           this.enrollment = result;
           this.qrDataUrl = await QRCode.toDataURL(result.uri, { margin: 1 });
           this.loading.enrollTotp = false;
@@ -707,6 +854,12 @@ export default {
         action: "kill-session",
         data: { name: row.name },
         completed: () => this.listAccounts(),
+        validationFailed: (errors) => {
+          this.actionFailed("kill-session")(
+            this.$t("accounts." + errors[0].error)
+          );
+          this.listAccounts();
+        },
         aborted: this.actionFailed("kill-session"),
         failed: this.actionFailed("kill-session"),
       });
