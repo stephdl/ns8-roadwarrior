@@ -31,6 +31,7 @@ for name, info in sorted(accounts.items()):
         "certificate": cert.get("status", "unknown"),
         "totp_enrolled": bool(totp.get(name, {}).get("confirmed")),
         "connected": name in connected,
+        "disabled": bool(info.get("disabled")),
         "last_login": last_login.get(name, 0),
     })
 json.dump(result, fp=sys.stdout)

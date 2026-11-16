@@ -22,7 +22,9 @@
     "enroll-totp": "Configurer l'authentificateur",
     "confirm-totp": "Activer l'authentificateur",
     "reset-totp": "Réinitialiser l'authentificateur",
-    "kill-session": "Déconnecter une session"
+    "kill-session": "Déconnecter une session",
+    "disable-account": "Désactiver un compte",
+    "enable-account": "Activer un compte"
   },
   "error": {
     "error": "Erreur",
@@ -155,7 +157,13 @@
     "reset_totp_description": "L'authentificateur de {name} est supprimé. L'utilisateur se connecte avec le mot de passe seul, jusqu'à une nouvelle configuration.",
     "reset_totp_description_required": "L'authentificateur de {name} est supprimé. L'utilisateur ne peut pas se connecter avant une nouvelle configuration.",
     "remove_title": "Supprimer le compte",
-    "remove_description": "Le certificat de {name} est révoqué et la session est fermée. Le profil cesse de fonctionner définitivement."
+    "remove_description": "Le certificat de {name} est révoqué et la session est fermée. Le profil cesse de fonctionner définitivement.",
+    "disabled": "Désactivé",
+    "disable": "Désactiver le compte",
+    "enable": "Activer le compte",
+    "disable_title": "Désactiver le compte {name}",
+    "enable_title": "Activer le compte {name}",
+    "reason_account_disabled": "Compte désactivé"
   },
   "settings": {
     "title": "Paramètres",

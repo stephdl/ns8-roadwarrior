@@ -22,7 +22,9 @@
     "enroll-totp": "Authenticator einrichten",
     "confirm-totp": "Authenticator aktivieren",
     "reset-totp": "Authenticator zurücksetzen",
-    "kill-session": "Sitzung trennen"
+    "kill-session": "Sitzung trennen",
+    "disable-account": "Konto deaktivieren",
+    "enable-account": "Konto aktivieren"
   },
   "error": {
     "error": "Fehler",
@@ -155,7 +157,13 @@
     "reset_totp_description": "Der Authenticator von {name} wird entfernt. Der Benutzer meldet sich nur mit dem Passwort an, bis er einen neuen einrichtet.",
     "reset_totp_description_required": "Der Authenticator von {name} wird entfernt. Der Benutzer kann sich nicht anmelden, bis er einen neuen einrichtet.",
     "remove_title": "Konto entfernen",
-    "remove_description": "Das Zertifikat von {name} wird widerrufen und die Sitzung geschlossen. Das Profil funktioniert dauerhaft nicht mehr."
+    "remove_description": "Das Zertifikat von {name} wird widerrufen und die Sitzung geschlossen. Das Profil funktioniert dauerhaft nicht mehr.",
+    "disabled": "Deaktiviert",
+    "disable": "Konto deaktivieren",
+    "enable": "Konto aktivieren",
+    "disable_title": "Konto {name} deaktivieren",
+    "enable_title": "Konto {name} aktivieren",
+    "reason_account_disabled": "Konto deaktiviert"
   },
   "settings": {
     "title": "Einstellungen",

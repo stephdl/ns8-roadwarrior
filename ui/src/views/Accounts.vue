@@ -122,6 +122,12 @@
                 </cv-data-table-cell>
                 <cv-data-table-cell>
                   <NsTag
+                    v-if="row.disabled"
+                    kind="high-contrast"
+                    :label="$t('accounts.disabled')"
+                  />
+                  <NsTag
+                    v-else
                     :label="
                       row.connected
                         ? $t('accounts.connected')
@@ -188,6 +194,16 @@
                       <NsMenuItem
                         :icon="Logout20"
                         :label="$t('accounts.disconnect')"
+                      />
+                    </cv-overflow-menu-item>
+                    <cv-overflow-menu-item @click="toggleAccount(row)">
+                      <NsMenuItem
+                        :icon="Power20"
+                        :label="
+                          row.disabled
+                            ? $t('accounts.enable')
+                            : $t('accounts.disable')
+                        "
                       />
                     </cv-overflow-menu-item>
                     <NsMenuDivider />
@@ -486,6 +502,7 @@ import Download20 from "@carbon/icons-vue/es/download/20";
 import Password20 from "@carbon/icons-vue/es/password/20";
 import Logout20 from "@carbon/icons-vue/es/logout/20";
 import RecentlyViewed20 from "@carbon/icons-vue/es/recently-viewed/20";
+import Power20 from "@carbon/icons-vue/es/power/20";
 
 export default {
   name: "Accounts",
@@ -510,6 +527,7 @@ export default {
       Password20,
       Logout20,
       RecentlyViewed20,
+      Power20,
       history: [],
       historyPage: [],
       historyColumns: ["time", "event", "address", "detail"],
@@ -952,6 +970,26 @@ export default {
           this.isShownResetTotpModal = false;
           this.actionFailed("reset-totp")(message);
         },
+      });
+    },
+    toggleAccount(row) {
+      const action = row.disabled ? "enable-account" : "disable-account";
+      this.error.action = "";
+      this.runModuleTask({
+        action,
+        data: { name: row.name },
+        title: this.$t(
+          row.disabled ? "accounts.enable_title" : "accounts.disable_title",
+          { name: row.name }
+        ),
+        isNotificationHidden: false,
+        completed: () => this.listAccounts(),
+        validationFailed: (errors) => {
+          this.actionFailed(action)(this.$t("accounts." + errors[0].error));
+          this.listAccounts();
+        },
+        aborted: this.actionFailed(action),
+        failed: this.actionFailed(action),
       });
     },
     killSession(row) {

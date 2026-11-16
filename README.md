@@ -56,7 +56,12 @@ While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. T
 
 Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In password mode, use the user name of the user domain: the login must match the certificate name.
 
-`remove-account` revokes the certificate and closes the session. `kill-session` returns `no_session` if the account is not connected.
+`remove-account` revokes the certificate and closes the session.
+
+    api-cli run disable-account --agent module/roadwarrior1 --data '{"name": "john"}'
+    api-cli run enable-account --agent module/roadwarrior1 --data '{"name": "john"}'
+
+`disable-account` closes the session and refuses every new one, in every authentication mode. The certificate stays valid, so `enable-account` gives the access back with the same profile. `kill-session` returns `no_session` if the account is not connected.
 
 `list-accounts` returns the certificate status, the authenticator status, the session state and the last login time of each account.
 
@@ -111,7 +116,7 @@ After a full login, the server gives the client a session token valid for 12 hou
 
     api-cli run get-login-history --agent module/roadwarrior1 --data '{"name": "john"}'
 
-It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `challenge_expired`, `code_reused`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
+It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `challenge_expired`, `code_reused`, `account_disabled`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
 
 The history keeps the last 15000 to 20000 events of the instance. The UI shows it per account and can download it as JSON.
 

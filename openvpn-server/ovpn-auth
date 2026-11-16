@@ -145,6 +145,13 @@ def check(username, password, common_name):
         raise Refused("certificate_mismatch", f"user {username!r} does not match certificate {common_name!r}")
     username = common_name
 
+    try:
+        with open("/run/ovpn/disabled.json") as f:
+            if username.lower() in {n.lower() for n in json.load(f)}:
+                raise Refused("account_disabled", f"user {username!r}: account disabled")
+    except (FileNotFoundError, ValueError):
+        pass
+
     with open("/run/ovpn/auth.json") as f:
         conf = json.load(f)
     try:

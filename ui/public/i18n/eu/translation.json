@@ -22,7 +22,9 @@
     "enroll-totp": "Konfiguratu autentifikatzailea",
     "confirm-totp": "Aktibatu autentifikatzailea",
     "reset-totp": "Berrezarri autentifikatzailea",
-    "kill-session": "Deskonektatu saio bat"
+    "kill-session": "Deskonektatu saio bat",
+    "disable-account": "Desgaitu kontu bat",
+    "enable-account": "Gaitu kontu bat"
   },
   "error": {
     "error": "Errorea",
@@ -155,7 +157,13 @@
     "reset_totp_description": "{name} kontuaren autentifikatzailea kendu egiten da. Erabiltzaileak pasahitzarekin bakarrik hasten du saioa, konfigurazio berri bat egin arte.",
     "reset_totp_description_required": "{name} kontuaren autentifikatzailea kendu egiten da. Erabiltzaileak ezin du saioa hasi konfigurazio berri bat egin arte.",
     "remove_title": "Kendu kontua",
-    "remove_description": "{name} kontuaren ziurtagiria baliogabetu egiten da eta saioa ixten da. Profilak betiko uzten du funtzionatzeari."
+    "remove_description": "{name} kontuaren ziurtagiria baliogabetu egiten da eta saioa ixten da. Profilak betiko uzten du funtzionatzeari.",
+    "disabled": "Desgaituta",
+    "disable": "Desgaitu kontua",
+    "enable": "Gaitu kontua",
+    "disable_title": "Desgaitu {name} kontua",
+    "enable_title": "Gaitu {name} kontua",
+    "reason_account_disabled": "Kontua desgaituta"
   },
   "settings": {
     "title": "Ezarpenak",

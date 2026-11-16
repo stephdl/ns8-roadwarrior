@@ -68,7 +68,7 @@ remote-cert-tls client
 data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305
 ${auth_lines}
 script-security 2
-client-connect "/usr/local/bin/ovpn-history connect"
+client-connect /usr/local/bin/ovpn-connect
 client-disconnect "/usr/local/bin/ovpn-history disconnect"
 ${push_lines}${dns_lines}
 management /etc/openvpn/run/mgmt.sock unix

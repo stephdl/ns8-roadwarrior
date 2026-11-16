@@ -22,7 +22,9 @@
     "enroll-totp": "Set up the authenticator",
     "confirm-totp": "Activate the authenticator",
     "reset-totp": "Reset the authenticator",
-    "kill-session": "Disconnect a session"
+    "kill-session": "Disconnect a session",
+    "disable-account": "Disable an account",
+    "enable-account": "Enable an account"
   },
   "error": {
     "error": "Error",
@@ -155,7 +157,13 @@
     "reset_totp_description": "The authenticator of {name} is removed. The user logs in with the password only, until a new setup.",
     "reset_totp_description_required": "The authenticator of {name} is removed. The user cannot log in until a new setup.",
     "remove_title": "Remove account",
-    "remove_description": "The certificate of {name} is revoked and the session is closed. The profile stops working for good."
+    "remove_description": "The certificate of {name} is revoked and the session is closed. The profile stops working for good.",
+    "disabled": "Disabled",
+    "disable": "Disable account",
+    "enable": "Enable account",
+    "disable_title": "Disable account {name}",
+    "enable_title": "Enable account {name}",
+    "reason_account_disabled": "Account disabled"
   },
   "settings": {
     "title": "Settings",

@@ -22,7 +22,9 @@
     "enroll-totp": "Configura l'autenticatore",
     "confirm-totp": "Attiva l'autenticatore",
     "reset-totp": "Reimposta l'autenticatore",
-    "kill-session": "Disconnetti una sessione"
+    "kill-session": "Disconnetti una sessione",
+    "disable-account": "Disabilita un account",
+    "enable-account": "Abilita un account"
   },
   "error": {
     "error": "Errore",
@@ -155,7 +157,13 @@
     "reset_totp_description": "L'autenticatore di {name} viene rimosso. L'utente accede solo con la password, fino a una nuova configurazione.",
     "reset_totp_description_required": "L'autenticatore di {name} viene rimosso. L'utente non può accedere fino a una nuova configurazione.",
     "remove_title": "Rimuovi account",
-    "remove_description": "Il certificato di {name} viene revocato e la sessione viene chiusa. Il profilo smette di funzionare per sempre."
+    "remove_description": "Il certificato di {name} viene revocato e la sessione viene chiusa. Il profilo smette di funzionare per sempre.",
+    "disabled": "Disabilitato",
+    "disable": "Disabilita account",
+    "enable": "Abilita account",
+    "disable_title": "Disabilita l'account {name}",
+    "enable_title": "Abilita l'account {name}",
+    "reason_account_disabled": "Account disabilitato"
   },
   "settings": {
     "title": "Impostazioni",

@@ -105,6 +105,16 @@ Check if the VPN resolver answers the node name
     ${output} =    Connect client    laptop1    -- nslookup ${fqdn} 10.66.0.1
     Should Contain    ${output}    Address: 10.66.0.1
 
+Check if a disabled account cannot connect
+    Run module action    disable-account    {"name": "laptop1"}
+    ${output} =    Run module action    list-accounts
+    Should Contain    ${output}    "disabled": true
+    ${output} =    Connect client    laptop1
+    Should Contain    ${output}    refused
+    Run module action    enable-account    {"name": "laptop1"}
+    ${output} =    Connect client    laptop1
+    Should Contain    ${output}    connected
+
 Check if a removed account cannot connect
     Run module action    remove-account    {"name": "laptop1"}
     ${output} =    Connect client    laptop1

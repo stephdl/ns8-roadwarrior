@@ -30,6 +30,8 @@ SERVER_ENV = "ovpn/server.env"
 AUTH_JSON = "ovpn/auth.json"
 HOSTS = "ovpn/hosts"
 DNSMASQ_CONF = "ovpn/dnsmasq.conf"
+# Read by the server at each new session: a change needs no restart
+DISABLED = "ovpn/disabled.json"
 LDAP_PASSWORD = "secrets/ldap-bind-password"
 TOTP_FILE = "secrets/totp.json"
 ACCOUNTS = "accounts.json"
@@ -210,6 +212,7 @@ def write_runtime(rdb=None):
             auth.update({k: ldap[k] for k in ("host", "port", "schema", "base_dn", "bind_dn")})
             write_private(LDAP_PASSWORD, ldap["bind_password"])
     save_json(AUTH_JSON, auth)
+    write_disabled(load_json(ACCOUNTS, {}))
     # True when the server must restart to push the new settings
     return new_server_env != old_server_env
 
@@ -261,6 +264,12 @@ def load_accounts():
 
 def save_accounts(accounts):
     save_json(ACCOUNTS, accounts)
+    write_disabled(accounts)
+
+
+def write_disabled(accounts):
+    os.makedirs(RUNTIME_DIR, exist_ok=True)
+    save_json(DISABLED, sorted(name for name, info in accounts.items() if info.get("disabled")))
 
 
 def load_totp():

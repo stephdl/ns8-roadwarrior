@@ -22,7 +22,9 @@
     "enroll-totp": "Configurar el autenticador",
     "confirm-totp": "Activar el autenticador",
     "reset-totp": "Restablecer el autenticador",
-    "kill-session": "Desconectar una sesión"
+    "kill-session": "Desconectar una sesión",
+    "disable-account": "Deshabilitar una cuenta",
+    "enable-account": "Habilitar una cuenta"
   },
   "error": {
     "error": "Error",
@@ -155,7 +157,13 @@
     "reset_totp_description": "Se elimina el autenticador de {name}. El usuario inicia sesión solo con la contraseña, hasta una nueva configuración.",
     "reset_totp_description_required": "Se elimina el autenticador de {name}. El usuario no puede iniciar sesión hasta una nueva configuración.",
     "remove_title": "Eliminar cuenta",
-    "remove_description": "El certificado de {name} se revoca y la sesión se cierra. El perfil deja de funcionar para siempre."
+    "remove_description": "El certificado de {name} se revoca y la sesión se cierra. El perfil deja de funcionar para siempre.",
+    "disabled": "Deshabilitada",
+    "disable": "Deshabilitar cuenta",
+    "enable": "Habilitar cuenta",
+    "disable_title": "Deshabilitar la cuenta {name}",
+    "enable_title": "Habilitar la cuenta {name}",
+    "reason_account_disabled": "Cuenta deshabilitada"
   },
   "settings": {
     "title": "Configuración",

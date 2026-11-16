@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# client-connect hook. It runs for every new session, in every auth mode, so a disabled
+# account is refused here even with a valid certificate and no password check.
+# /run/ovpn/disabled.json lists the disabled accounts, written by the module.
+
+import json
+import os
+import subprocess
+import sys
+
+name = os.environ.get("common_name", "")
+try:
+    with open("/run/ovpn/disabled.json") as f:
+        disabled = {n.lower() for n in json.load(f)}
+except (FileNotFoundError, ValueError):
+    disabled = set()
+
+if name.lower() in disabled:
+    print(f"ovpn-connect: account {name!r} is disabled", file=sys.stderr, flush=True)
+    subprocess.run(["/usr/local/bin/ovpn-history", "refused", name, "account_disabled"], check=False)
+    sys.exit(1)
+
+# OpenVPN runs this hook without PATH
+sys.exit(subprocess.run(["/usr/local/bin/ovpn-history", "connect"], check=False).returncode)
