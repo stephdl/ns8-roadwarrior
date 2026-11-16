@@ -96,8 +96,10 @@ def ldap_ok(conf, username, password):
 
 
 def check(username, password, common_name):
-    if username != common_name:
+    # LDAP names ignore case: "Alice" is the user of the certificate "alice"
+    if username.lower() != common_name.lower():
         raise Refused("certificate_mismatch", f"user {username!r} does not match certificate {common_name!r}")
+    username = common_name
 
     with open("/run/ovpn/auth.json") as f:
         conf = json.load(f)
@@ -163,6 +165,10 @@ def main():
     if os.environ.get("session_state") in ("Authenticated", "AuthenticatedEmptyUser"):
         log(f"user {common_name!r} renewed with a session token")
         sys.exit(0)
+    # The password field holds the old token: an LDAP bind with it would count as a bad password
+    if os.environ.get("session_state") in ("Expired", "ExpiredEmptyUser", "Invalid"):
+        log(f"user {common_name!r}: session token {os.environ['session_state'].lower()}")
+        sys.exit(1)
 
     # OpenVPN deletes the credentials file when this process exits, read it first
     with open(sys.argv[1]) as f:
