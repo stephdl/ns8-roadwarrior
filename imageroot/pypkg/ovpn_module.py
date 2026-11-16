@@ -156,8 +156,14 @@ def write_runtime(rdb=None):
     )
 
     push_routes = []
-    # Parent domains, not host names: a new app of the same domain needs no new push to the clients
-    domains = {host.split(".", 1)[1] if host.count(".") >= 2 else host for host in hosts}
+    # Parent domains, not host names: a new app of the same domain needs no new push to the clients.
+    # When the VPN host shares that domain, push the host names instead: a reconnect must
+    # resolve the VPN host outside the tunnel.
+    domains = set()
+    for host in hosts:
+        parent = host.split(".", 1)[1] if host.count(".") >= 2 else host
+        vpn_inside = vpn_host == parent or vpn_host.endswith("." + parent)
+        domains.add(host if vpn_inside else parent)
     if samba:
         push_routes.append(f"{samba[2]}/255.255.255.255")
         domains.add(samba[1])
