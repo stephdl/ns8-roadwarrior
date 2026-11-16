@@ -20,8 +20,6 @@ if name not in om.load_accounts():
 if om.pki_list().get(name, {}).get("status") != "valid":
     om.fail_validation("name", name, "certificate_not_valid")
 
-totp = om.load_totp().get(name, {})
-ask_code = om.is_true(os.environ.get("OVPN_TOTP_REQUIRED")) or bool(totp.get("confirmed"))
-args = ["ovpn-pki", "profile", name] + (["totp"] if ask_code else [])
-profile = om.podman_exec(*args).stdout
-json.dump({"filename": f"{name}@{os.environ.get('OVPN_HOST', 'vpn')}.ovpn", "profile": profile}, fp=sys.stdout)
+profile = om.podman_exec("ovpn-pki", "profile", name).stdout
+result = {"filename": f"{name}@{os.environ.get('OVPN_HOST', 'vpn')}.ovpn", "profile": profile}
+json.dump(om.seal(result, request.get("public_key")), fp=sys.stdout)

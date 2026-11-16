@@ -38,13 +38,18 @@ for iface in addrs:
 if any(net.overlaps(other) for other in taken):
     om.fail_validation("network", request["network"], "network_overlap")
 
-# The port is written in every profile already sent, the network in the HTTP route allowlists
+# Host and port are written in every profile already sent, the network in the HTTP route allowlists
 if om.load_accounts():
     current = om.settings()
+    if request["host"] != current["OVPN_HOST"]:
+        om.fail_validation("host", request["host"], "host_locked")
     if str(request["port"]) != current["OVPN_PORT"]:
         om.fail_validation("port", request["port"], "port_locked")
     if request["network"] != current["OVPN_NETWORK"]:
         om.fail_validation("network", request["network"], "network_locked")
+    # Profiles hold the login prompt of the mode they were made with
+    if request["auth_mode"] != current["OVPN_AUTH_MODE"]:
+        om.fail_validation("auth_mode", request["auth_mode"], "auth_mode_locked")
 
 if request["auth_mode"] == "certificate_password":
     domain = request.get("user_domain", "")

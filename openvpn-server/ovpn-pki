@@ -9,7 +9,7 @@
 #   ovpn-pki init                  create the CA and the server keys once
 #   ovpn-pki add NAME              issue a client certificate
 #   ovpn-pki revoke NAME           revoke it and publish the new CRL
-#   ovpn-pki profile NAME [totp]   print the client profile
+#   ovpn-pki profile NAME          print the client profile
 #   ovpn-pki list                  print "name status expiry" for every client certificate
 #   ovpn-pki ca-expiry             print the CA expiry date
 
@@ -69,9 +69,8 @@ EOF
     if [ "${AUTH_MODE}" = "certificate_password" ]; then
         echo "auth-user-pass"
         echo "auth-nocache"
-        if [ "$3" = "totp" ]; then
-            echo 'static-challenge "Authenticator code" 1'
-        fi
+        # Always ask: an authenticator set up later must not break the profiles already sent
+        echo 'static-challenge "Authenticator code (leave empty if you have none)" 1'
     fi
     echo "<ca>"
     pem "${pki}/ca.crt"
