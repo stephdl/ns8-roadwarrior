@@ -38,6 +38,11 @@ for iface in addrs:
 if any(net.overlaps(other) for other in taken):
     om.fail_validation("network", request["network"], "network_overlap")
 
+# A running server of this instance holds its own port: that one is not a conflict
+own_port = om.server_running() and str(request["port"]) == os.environ.get("OVPN_PORT")
+if not own_port and om.udp_port_in_use(request["port"]):
+    om.fail_validation("port", request["port"], "port_in_use")
+
 # Host and port are written in every profile already sent, the network in the HTTP route allowlists
 if om.load_accounts():
     current = om.settings()

@@ -6,6 +6,7 @@
 """Shared helpers of the OpenVPN module. Every path is relative to the module state directory."""
 
 import base64
+import fcntl
 import ipaddress
 import json
 import os
@@ -17,7 +18,7 @@ from datetime import datetime, timezone
 
 import agent
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import agent.ldapproxy
 
@@ -49,8 +50,6 @@ SAMBA_PORTS = [
 ]
 # Traefik for the web apps, the VPN resolver for the names
 BASE_PORTS = ["80/tcp", "443/tcp", "53/tcp", "53/udp"]
-
-NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def log(*args):
@@ -227,7 +226,23 @@ def pki_list():
     return certs
 
 
+_state_lock = None
+
+
+def lock_state():
+    """Serialize the actions that read then write accounts.json and totp.json.
+
+    The lock lasts until the process exits, so a whole read, change and write sequence
+    runs alone. Without it, two tasks at once could each overwrite the other's change.
+    """
+    global _state_lock
+    if _state_lock is None:
+        _state_lock = open("state.lock", "w")
+        fcntl.flock(_state_lock, fcntl.LOCK_EX)
+
+
 def load_accounts():
+    lock_state()
     return load_json(ACCOUNTS, {})
 
 
@@ -236,6 +251,7 @@ def save_accounts(accounts):
 
 
 def load_totp():
+    lock_state()
     return load_json(TOTP_FILE, {})
 
 
@@ -273,6 +289,8 @@ def seal(payload, public_key):
         key = serialization.load_der_public_key(base64.b64decode(public_key))
     except ValueError:
         fail_validation("public_key", "", "invalid_public_key")
+    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
+        fail_validation("public_key", "", "invalid_public_key")
     aes_key = AESGCM.generate_key(bit_length=256)
     iv = os.urandom(12)
     data = AESGCM(aes_key).encrypt(iv, json.dumps(payload).encode(), None)
@@ -282,3 +300,21 @@ def seal(payload, public_key):
         "iv": base64.b64encode(iv).decode(),
         "data": base64.b64encode(data).decode(),
     }}
+
+
+def udp_port_in_use(port):
+    """True if a socket of the node already listens on this UDP port.
+
+    Modules run on the host network or publish their ports on it, so the kernel tables show them all.
+    """
+    for table in ("/proc/net/udp", "/proc/net/udp6"):
+        try:
+            with open(table) as f:
+                next(f)
+                for line in f:
+                    local = line.split()[1]
+                    if int(local.rsplit(":", 1)[1], 16) == port:
+                        return True
+        except FileNotFoundError:
+            continue
+    return False

@@ -21,5 +21,7 @@ if om.pki_list().get(name, {}).get("status") != "valid":
     om.fail_validation("name", name, "certificate_not_valid")
 
 profile = om.podman_exec("ovpn-pki", "profile", name).stdout
-result = {"filename": f"{name}@{os.environ.get('OVPN_HOST', 'vpn')}.ovpn", "profile": profile}
+# An IPv6 host holds ":", refused in Windows file names
+host = os.environ.get("OVPN_HOST", "vpn").replace(":", "-")
+result = {"filename": f"{name}@{host}.ovpn", "profile": profile}
 json.dump(om.seal(result, request.get("public_key")), fp=sys.stdout)
