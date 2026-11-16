@@ -169,6 +169,7 @@ def check(username, password, common_name):
         if counter is None:
             raise Refused("wrong_code", f"user {username!r}: wrong authenticator code")
         consume_totp(username, counter)
+        record_full_auth(username)
         log(f"user {username!r} accepted")
         return None
 
@@ -180,6 +181,7 @@ def check(username, password, common_name):
     if totp.get("confirmed"):
         log(f"user {username!r}: password accepted, asking for the authenticator code")
         return new_challenge(username)
+    record_full_auth(username)
     log(f"user {username!r} accepted")
     return None
 
@@ -203,6 +205,40 @@ def run_check(username, password, common_name):
     return False, None
 
 
+AUTH_TIMES = "/etc/openvpn/last-full-auth.json"
+
+
+def record_full_auth(name):
+    """Remember when the account last passed the full check: password, then code"""
+    with open(AUTH_TIMES + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(AUTH_TIMES) as f:
+                times = json.load(f)
+        except (FileNotFoundError, ValueError):
+            times = {}
+        times[name.lower()] = int(time.time())
+        write_private(AUTH_TIMES, times)
+
+
+def token_cut(name):
+    """True if an admin disconnected the account after its last full login.
+
+    The session token lives 12 hours and skips the password: a disconnect must end it.
+    """
+    try:
+        with open("/etc/openvpn/token-cutoff.json") as f:
+            cutoff = json.load(f).get(name.lower(), 0)
+    except (FileNotFoundError, ValueError):
+        return False
+    try:
+        with open(AUTH_TIMES) as f:
+            last = json.load(f).get(name.lower(), 0)
+    except (FileNotFoundError, ValueError):
+        last = 0
+    return cutoff >= last
+
+
 def totp_check():
     request = json.load(sys.stdin)
     sys.exit(0 if totp_counter(request["secret"], request["code"]) is not None else 1)
@@ -210,8 +246,12 @@ def totp_check():
 
 def main():
     common_name = os.environ.get("common_name", "")
-    # The session token was checked by OpenVPN itself: the user already passed the full check
+    # The session token was checked by OpenVPN itself: the user already passed the full check,
+    # unless an admin disconnected the account after the token was issued
     if os.environ.get("session_state") in ("Authenticated", "AuthenticatedEmptyUser"):
+        if token_cut(common_name):
+            log(f"user {common_name!r}: session token cut by a disconnect")
+            sys.exit(1)
         log(f"user {common_name!r} renewed with a session token")
         sys.exit(0)
     # The password field holds the old token: an LDAP bind with it would count as a bad password
