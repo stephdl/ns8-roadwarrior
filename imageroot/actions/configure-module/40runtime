@@ -7,4 +7,6 @@
 
 import ovpn_module as om
 
-om.write_runtime()
+# ovpn-auth reads auth.json at each login: only server.env changes need a restart
+if om.write_runtime() or not om.server_running():
+    open("ovpn/restart-needed", "w").close()
