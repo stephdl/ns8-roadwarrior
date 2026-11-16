@@ -59,6 +59,8 @@ def status():
 def kill(name):
     out = command(f"kill {name}", ("SUCCESS", "ERROR"))
     print(out.strip(), file=sys.stderr)
+    if "SUCCESS" not in out:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
