@@ -240,8 +240,17 @@ def token_cut(name):
 
 
 def totp_check():
+    """Check a code for the module; with "name", the code is spent like at a login"""
     request = json.load(sys.stdin)
-    sys.exit(0 if totp_counter(request["secret"], request["code"]) is not None else 1)
+    counter = totp_counter(request["secret"], request["code"])
+    if counter is None:
+        sys.exit(1)
+    if request.get("name"):
+        try:
+            consume_totp(request["name"], counter)
+        except Refused:
+            sys.exit(1)
+    sys.exit(0)
 
 
 def main():

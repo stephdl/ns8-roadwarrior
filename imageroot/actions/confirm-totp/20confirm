@@ -17,7 +17,7 @@ totp = om.load_totp()
 entry = totp.get(name, {})
 if not entry.get("pending"):
     om.fail_validation("code", request["code"], "no_pending_enrollment")
-if not om.totp_ok(entry["pending"], request["code"]):
+if not om.totp_ok(entry["pending"], request["code"], name):
     om.fail_validation("code", request["code"], "wrong_code")
 totp[name] = {"secret": entry["pending"], "confirmed": True, "enrolled": om.now()}
 om.save_totp(totp)
