@@ -768,10 +768,22 @@ export default {
         filename
       );
     },
+    historyFileDate() {
+      // Local date and time: two downloads the same day get two names
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return (
+        `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+          now.getDate()
+        )}` + `_${pad(now.getHours())}${pad(now.getMinutes())}`
+      );
+    },
     downloadHistory() {
       this.saveJson(
         this.filteredHistory,
-        `${this.currentAccount}-login-history.json`
+        `${this.instanceName}-login-history-user-${
+          this.currentAccount
+        }-${this.historyFileDate()}.json`
       );
     },
     downloadAllHistory() {
@@ -785,7 +797,9 @@ export default {
           this.loading.downloadAllHistory = false;
           this.saveJson(
             result.events,
-            `${this.instanceName}-login-history.json`
+            `${
+              this.instanceName
+            }-login-history-all-users-${this.historyFileDate()}.json`
           );
         },
         aborted: (message) => {
