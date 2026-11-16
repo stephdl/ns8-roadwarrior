@@ -18,6 +18,7 @@ import sys
 from datetime import datetime, timezone
 
 import agent
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -289,6 +290,20 @@ def require_server():
         fail_validation("name", "", "server_not_running")
 
 
+def load_public_key(public_key):
+    """Return the RSA key of the browser, or end the action with invalid_public_key.
+
+    Call it before changing any state, so a bad key leaves nothing half done.
+    """
+    try:
+        key = serialization.load_der_public_key(base64.b64decode(public_key))
+    except (ValueError, TypeError, UnsupportedAlgorithm):
+        fail_validation("public_key", "", "invalid_public_key")
+    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
+        fail_validation("public_key", "", "invalid_public_key")
+    return key
+
+
 def seal(payload, public_key):
     """Encrypt payload for the browser that sent public_key (base64 SPKI, RSA-OAEP SHA-256).
 
@@ -297,12 +312,7 @@ def seal(payload, public_key):
     """
     if not public_key:
         return payload
-    try:
-        key = serialization.load_der_public_key(base64.b64decode(public_key))
-    except ValueError:
-        fail_validation("public_key", "", "invalid_public_key")
-    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
-        fail_validation("public_key", "", "invalid_public_key")
+    key = load_public_key(public_key)
     aes_key = AESGCM.generate_key(bit_length=256)
     iv = os.urandom(12)
     data = AESGCM(aes_key).encrypt(iv, json.dumps(payload).encode(), None)

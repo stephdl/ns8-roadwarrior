@@ -23,6 +23,9 @@ if os.environ.get("OVPN_AUTH_MODE") != "certificate_password":
 if name not in om.load_accounts():
     om.fail_validation("name", name, "account_not_found")
 
+if request.get("public_key"):
+    om.load_public_key(request["public_key"])
+
 secret = base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
 totp = om.load_totp()
 # A confirmed secret stays active until the new one is confirmed
