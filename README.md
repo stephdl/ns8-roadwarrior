@@ -4,11 +4,15 @@ OpenVPN road warrior server for NethServer 8.
 
 Remote users connect to one node. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
 
-The module is rootless. The core creates the tun device and the firewall zone. Clients do not reach other nodes, the LAN or Internet through the VPN.
+The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
+
+The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
 
 ## Install
 
     add-module ghcr.io/stephdl/roadwarrior:latest 1
+
+The module pulls a second image, `ghcr.io/stephdl/roadwarrior-server`, that runs OpenVPN and dnsmasq.
 
 Install one instance per node that runs apps you want to reach through the VPN.
 
@@ -26,23 +30,75 @@ Install one instance per node that runs apps you want to reach through the VPN.
     }
     EOF
 
-`auth_mode` is `certificate` or `certificate_password`. With a password, the user logs in with the user domain password, and an authenticator code (TOTP) can be added per account. `totp_required` refuses the accounts without an authenticator.
+`host`, `port`, `network` and `auth_mode` are required.
 
-The port and the network cannot change while accounts exist. The port is written in every profile, and the network in the HTTP route allowlists.
+- `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
+- `port`: UDP port, from 1024 to 65535.
+- `network`: private IPv4 network from /16 to /28. It must not overlap the cluster network or a node interface.
+- `auth_mode`: `certificate`, or `certificate_password` to also check the user domain password.
+- `user_domain`: required with `certificate_password`.
+- `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
+- `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
+
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`.
+
+While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. The errors are `host_locked`, `port_locked`, `network_locked` and `auth_mode_locked`. Host, port and login prompt are written in every profile already sent, and the network in the HTTP route allowlists. Remove all the accounts to change them.
 
 ## Accounts
 
     api-cli run add-account --agent module/roadwarrior1 --data '{"name": "john"}'
+    api-cli run list-accounts --agent module/roadwarrior1
     api-cli run download-client-config --agent module/roadwarrior1 --data '{"name": "john"}'
+    api-cli run kill-session --agent module/roadwarrior1 --data '{"name": "john"}'
     api-cli run remove-account --agent module/roadwarrior1 --data '{"name": "john"}'
 
-In password mode the account name is a user of the user domain. `remove-account` revokes the certificate and closes the session.
+Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In password mode, use the user name of the user domain: the login must match the certificate name.
 
-The profile holds the client private key. In certificate mode the profile alone gives access, so send it through a safe channel.
+`remove-account` revokes the certificate and closes the session. `kill-session` returns `no_session` if the account is not connected.
+
+`list-accounts` returns the certificate status, the authenticator status, the session state and the last login time of each account.
+
+## Profile
+
+`download-client-config` returns the file name `NAME@HOST.ovpn` and the profile. The profile holds the CA, the client certificate and key, and the tls-crypt key. Routes and DNS settings are not in the profile: the server pushes them.
+
+In password mode the profile also asks for the password and an authenticator code. Users without an authenticator leave the code empty. So the profile keeps working when an authenticator is set up later.
+
+In certificate mode the profile alone gives access. Send it through a safe channel.
+
+The UI encrypts the profile and the authenticator secret for the browser: the core keeps task output in Redis for hours, and only ciphertext lands there. Called from `api-cli` without `public_key`, the actions return plain text.
+
+## Authenticator (TOTP)
+
+    api-cli run enroll-totp --agent module/roadwarrior1 --data '{"name": "john"}'
+    api-cli run confirm-totp --agent module/roadwarrior1 --data '{"name": "john", "code": "123456"}'
+    api-cli run reset-totp --agent module/roadwarrior1 --data '{"name": "john"}'
+
+`enroll-totp` returns a new secret and its `otpauth://` URI. The previous secret stays active until `confirm-totp` accepts a code from the new one.
+
+Codes use SHA-1, 6 digits and 30 second steps, with one step of tolerance on each side. A code works once. It is spent only when the password is right.
+
+After a full login, the server gives the client a session token valid for 12 hours. Renegotiations and short reconnects use it, so the user is not asked again.
+
+## Login history
+
+    api-cli run get-login-history --agent module/roadwarrior1 --data '{"name": "john"}'
+
+It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `code_reused`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
+
+The history keeps the last 15000 to 20000 events of the instance. The UI shows it per account and can download it as JSON.
 
 ## DNS
 
-A dnsmasq instance listens on the VPN address of the node. It answers the host names of the node HTTP routes with that address, forwards the Samba realm to the domain controller of the node, and resolves the rest through the node. The profile does not hold routes or DNS settings: the server pushes them.
+A dnsmasq instance listens on the VPN address of the node. It answers the host names of the node HTTP routes with that address, and forwards the Samba realm to the domain controller of the node. Other names go to the resolver of the node. The server pushes this resolver with the domains of those names, so a client that supports split DNS asks it only for them.
+
+## Status
+
+`get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The UI warns 90 days before the CA expires.
+
+## Backup
+
+The backup holds the PKI, the login history, the accounts and the authenticator secrets. A restore runs `configure-module` again with the saved settings.
 
 ## Uninstall
 
