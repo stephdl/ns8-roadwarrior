@@ -23,7 +23,10 @@ def command(cmd, end):
         buf = b""
         # Skip the banner line
         while b"\n" not in buf:
-            buf += sock.recv(4096)
+            chunk = sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("management socket closed before the banner")
+            buf += chunk
         buf = buf.split(b"\n", 1)[1]
         sock.sendall(cmd.encode() + b"\n")
         while not any(line.startswith(end) for line in buf.decode(errors="replace").splitlines()):

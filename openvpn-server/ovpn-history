@@ -20,8 +20,9 @@ import sys
 import time
 
 HISTORY = "/etc/openvpn/history.jsonl"
-# Keep the file small: when it grows past MAX_LINES, drop the oldest events down to KEEP_LINES
-MAX_LINES = 20000
+# Keep the file small: when it grows past MAX_BYTES, drop the oldest events down to KEEP_LINES.
+# The size check avoids reading the whole file in the connect hook, which blocks every client.
+MAX_BYTES = 4 * 1024 * 1024
 KEEP_LINES = 15000
 
 
@@ -38,9 +39,10 @@ def append(event):
         fcntl.flock(lock, fcntl.LOCK_EX)
         with open(HISTORY, "a") as f:
             f.write(json.dumps(event) + "\n")
-        with open(HISTORY) as f:
-            lines = f.readlines()
-        if len(lines) > MAX_LINES:
+            size = f.tell()
+        if size > MAX_BYTES:
+            with open(HISTORY) as f:
+                lines = f.readlines()
             tmp = HISTORY + ".tmp"
             with open(tmp, "w") as f:
                 f.writelines(lines[-KEEP_LINES:])
