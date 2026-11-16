@@ -13,6 +13,7 @@ import ovpn_module as om
 
 request = json.load(sys.stdin)
 name = request["name"]
+om.require_enabled_account(name)
 totp = om.load_totp()
 if totp.pop(name, None) is not None:
     om.save_totp(totp)

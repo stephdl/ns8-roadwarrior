@@ -163,7 +163,9 @@
     "enable": "Ativar conta",
     "disable_title": "Desativar a conta {name}",
     "enable_title": "Ativar a conta {name}",
-    "reason_account_disabled": "Conta desativada"
+    "reason_account_disabled": "Conta desativada",
+    "enabled": "Ativada",
+    "account_disabled": "Esta conta está desativada"
   },
   "settings": {
     "title": "Definições",

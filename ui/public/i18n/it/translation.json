@@ -163,7 +163,9 @@
     "enable": "Abilita account",
     "disable_title": "Disabilita l'account {name}",
     "enable_title": "Abilita l'account {name}",
-    "reason_account_disabled": "Account disabilitato"
+    "reason_account_disabled": "Account disabilitato",
+    "enabled": "Abilitato",
+    "account_disabled": "Questo account è disabilitato"
   },
   "settings": {
     "title": "Impostazioni",

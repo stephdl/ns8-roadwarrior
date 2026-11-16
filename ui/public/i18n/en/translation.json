@@ -163,7 +163,9 @@
     "enable": "Enable account",
     "disable_title": "Disable account {name}",
     "enable_title": "Enable account {name}",
-    "reason_account_disabled": "Account disabled"
+    "reason_account_disabled": "Account disabled",
+    "enabled": "Enabled",
+    "account_disabled": "This account is disabled"
   },
   "settings": {
     "title": "Settings",

@@ -163,7 +163,9 @@
     "enable": "Gaitu kontua",
     "disable_title": "Desgaitu {name} kontua",
     "enable_title": "Gaitu {name} kontua",
-    "reason_account_disabled": "Kontua desgaituta"
+    "reason_account_disabled": "Kontua desgaituta",
+    "enabled": "Gaituta",
+    "account_disabled": "Kontu hau desgaituta dago"
   },
   "settings": {
     "title": "Ezarpenak",

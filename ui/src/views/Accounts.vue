@@ -45,6 +45,7 @@
             :pageSizes="[10, 25, 50, 100]"
             :overflow-menu="true"
             isSearchable
+            :filterRowsCallback="searchAccounts"
             :searchPlaceholder="$t('accounts.search')"
             :searchClearLabel="core.$t('common.clear_search')"
             :noSearchResultsLabel="core.$t('common.no_search_results')"
@@ -167,6 +168,7 @@
                     </cv-overflow-menu-item>
                     <cv-overflow-menu-item
                       v-if="passwordMode"
+                      :disabled="row.disabled"
                       @click="startEnrollment(row)"
                     >
                       <NsMenuItem
@@ -180,6 +182,7 @@
                     </cv-overflow-menu-item>
                     <cv-overflow-menu-item
                       v-if="passwordMode && row.totp_enrolled"
+                      :disabled="row.disabled"
                       @click="showResetTotpModal(row)"
                     >
                       <NsMenuItem
@@ -960,6 +963,14 @@ export default {
           this.isShownResetTotpModal = false;
           this.listAccounts();
         },
+        validationFailed: (errors) => {
+          this.loading.resetTotp = false;
+          this.isShownResetTotpModal = false;
+          this.actionFailed("reset-totp")(
+            this.$t("accounts." + errors[0].error)
+          );
+          this.listAccounts();
+        },
         aborted: (message) => {
           this.loading.resetTotp = false;
           this.isShownResetTotpModal = false;
@@ -971,6 +982,38 @@ export default {
           this.actionFailed("reset-totp")(message);
         },
       });
+    },
+    accountLabels(row) {
+      // The words shown in the row, in the language of the page
+      return [
+        row.name,
+        this.$t("accounts.certificate_" + row.certificate),
+        this.$t(
+          row.totp_enrolled
+            ? "accounts.totp_enrolled"
+            : "accounts.totp_not_enrolled"
+        ),
+        this.$t(
+          row.disabled
+            ? "accounts.disabled"
+            : row.connected
+            ? "accounts.connected"
+            : "accounts.not_connected"
+        ),
+        this.$t(row.disabled ? "accounts.disabled" : "accounts.enabled"),
+        this.formatTimestamp(row.last_login),
+      ];
+    },
+    searchAccounts(query) {
+      const text = query.trim().toLowerCase();
+      if (!text) {
+        return this.accounts;
+      }
+      return this.accounts.filter((row) =>
+        this.accountLabels(row).some((label) =>
+          label.toLowerCase().includes(text)
+        )
+      );
     },
     toggleAccount(row) {
       const action = row.disabled ? "enable-account" : "disable-account";

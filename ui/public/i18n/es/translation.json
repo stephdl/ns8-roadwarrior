@@ -163,7 +163,9 @@
     "enable": "Habilitar cuenta",
     "disable_title": "Deshabilitar la cuenta {name}",
     "enable_title": "Habilitar la cuenta {name}",
-    "reason_account_disabled": "Cuenta deshabilitada"
+    "reason_account_disabled": "Cuenta deshabilitada",
+    "enabled": "Habilitada",
+    "account_disabled": "Esta cuenta está deshabilitada"
   },
   "settings": {
     "title": "Configuración",

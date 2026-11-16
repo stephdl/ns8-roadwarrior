@@ -267,6 +267,15 @@ def save_accounts(accounts):
     write_disabled(accounts)
 
 
+def require_enabled_account(name):
+    """End the action unless the account exists and is enabled"""
+    account = load_accounts().get(name)
+    if account is None:
+        fail_validation("name", name, "account_not_found")
+    if account.get("disabled"):
+        fail_validation("name", name, "account_disabled")
+
+
 def write_disabled(accounts):
     os.makedirs(RUNTIME_DIR, exist_ok=True)
     save_json(DISABLED, sorted(name for name, info in accounts.items() if info.get("disabled")))
