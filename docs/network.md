@@ -74,7 +74,7 @@ sequenceDiagram
 
 In certificate mode the password and code steps are skipped: the certificate alone gives access.
 
-The challenge state lives 3 minutes and works once. Older profiles send the code with the password (static-challenge), and the server still accepts them.
+The challenge state lives 3 minutes and works once.
 
 ## Where the packets can go
 

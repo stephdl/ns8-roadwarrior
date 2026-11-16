@@ -165,34 +165,14 @@ def check(username, password, common_name):
         log(f"user {username!r} accepted")
         return None
 
-    # Profiles made before the dynamic challenge send SCRV1:<base64 password>:<base64 code>
-    static = password.startswith("SCRV1:")
-    code = ""
-    if static:
-        try:
-            _, b64pass, b64code = password.split(":", 2)
-            password = base64.b64decode(b64pass).decode()
-            code = base64.b64decode(b64code).decode().strip()
-        except ValueError:
-            raise Refused("malformed_response", f"user {username!r}: malformed challenge response")
-
-    counter = None
-    if totp.get("confirmed"):
-        if static:
-            counter = totp_counter(totp["secret"], code)
-            if counter is None:
-                raise Refused("wrong_code", f"user {username!r}: wrong or missing authenticator code")
-    elif conf.get("totp_required"):
+    if not totp.get("confirmed") and conf.get("totp_required"):
         raise Refused("totp_not_enrolled", f"user {username!r}: authenticator required but not enrolled")
 
     if not password or not ldap_ok(conf, username, password):
         raise Refused("wrong_password", f"user {username!r}: wrong password")
-    if totp.get("confirmed") and not static:
+    if totp.get("confirmed"):
         log(f"user {username!r}: password accepted, asking for the authenticator code")
         return new_challenge(username)
-    # Spend the code last: a wrong password must not burn it
-    if counter is not None:
-        consume_totp(username, counter)
     log(f"user {username!r} accepted")
     return None
 
