@@ -54,12 +54,17 @@ sequenceDiagram
 
     C->>O: TLS handshake with the client certificate
     O->>O: check CA and revocation list
-    C->>O: user name, password, authenticator code
+    C->>O: user name, password
     O->>A: check in a child process
     A->>A: user name must equal the certificate name
-    A->>A: check the TOTP code, if the account has one
     A->>L: bind with the user password
     L-->>A: ok or refused
+    alt account with an authenticator
+        A-->>O: AUTH_FAILED with a CRV1 challenge
+        O-->>C: ask for the authenticator code
+        C->>O: reconnect with CRV1, state id and code
+        O->>A: check the challenge state and the TOTP code
+    end
     A-->>O: result through auth_control_file
     A->>H: refused, with the reason
     O->>H: login, with addresses
@@ -68,6 +73,8 @@ sequenceDiagram
 ```
 
 In certificate mode the password and code steps are skipped: the certificate alone gives access.
+
+The challenge state lives 3 minutes and works once. Older profiles send the code with the password (static-challenge), and the server still accepts them.
 
 ## Where the packets can go
 
@@ -133,9 +140,45 @@ flowchart TB
     d --> r3
 ```
 
-The server pushes `10.8.0.1` as DNS server, with the domains of the route names and the Samba realm. A client with split DNS (OpenVPN 2.6) asks the VPN resolver only for those domains. The names of the HTTP routes resolve to the VPN address of the node, so their traffic enters the VPN and Traefik sees `10.8.0.x`.
+The names of the HTTP routes and the FQDN of the node resolve to the VPN address of the node. Their traffic enters the VPN and Traefik sees `10.8.0.x`. Without the VPN resolver, the same name gives the public address: the traffic goes around the tunnel and an app kept for the VPN answers 403.
+
+The server pushes the resolver three ways, so each client finds one it knows:
+
+- `dhcp-option DNS 10.8.0.1`, for every client;
+- `dhcp-option DOMAIN <domain>`, so NetworkManager and Windows send those domains to the VPN resolver;
+- `dns server 0 address` and `resolve-domains`, the split DNS of OpenVPN 2.6 clients.
+
+The host of the VPN server is left out on purpose. A client that keeps the VPN resolver during a reconnect would otherwise look for the server inside the tunnel.
 
 When an HTTP route is added or removed, the `hosts-changed` event rewrites the dnsmasq list.
+
+## Use the VPN
+
+The profile holds no DNS setting: the server pushes it at each connection. What the client does with it depends on the client.
+
+- NetworkManager, OpenVPN Connect, OpenVPN GUI on Windows and Tunnelblick apply it on their own.
+- The `openvpn` command on Linux does not change the resolver by itself. Run it with the systemd-resolved helper of your distribution, for example:
+
+      openvpn --config alice@vpn.example.org.ovpn --script-security 2 \
+        --up /etc/openvpn/update-systemd-resolved --down /etc/openvpn/update-systemd-resolved --down-pre
+
+Check from the client, once connected, with `app.example.org` an HTTP route of the node:
+
+1. The name gives the VPN address of the node.
+
+       resolvectl query app.example.org      # Linux with systemd-resolved
+       nslookup app.example.org              # Windows, macOS
+
+   Expect `10.8.0.1`. A public address means the client does not use the VPN resolver.
+
+2. The packets go through the tunnel.
+
+       ip route get 10.8.0.1                 # Linux: dev tun0
+       route print                           # Windows: 10.8.0.0 on the VPN adapter
+
+3. Traefik sees the VPN address. Open the app: with "Allow access from" set to the VPN network it answers, without the VPN it answers 403.
+
+If the name still gives the public address, flush the DNS cache of the client (`resolvectl flush-caches`, `ipconfig /flushdns`) and check that the browser does not use its own DNS over HTTPS.
 
 ## Several nodes
 

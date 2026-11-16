@@ -64,7 +64,7 @@ Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In pa
 
 `download-client-config` returns the file name `NAME@HOST.ovpn` and the profile. The profile holds the CA, the client certificate and key, and the tls-crypt key. Routes and DNS settings are not in the profile: the server pushes them.
 
-In password mode the profile also asks for the password and an authenticator code. Users without an authenticator leave the code empty. So the profile keeps working when an authenticator is set up later.
+In password mode the profile asks for the user name and the password. The authenticator code is not in the profile: the server asks it when the account has one, so the profile keeps working when an authenticator is set up later.
 
 In certificate mode the profile alone gives access. Send it through a safe channel.
 
@@ -81,11 +81,13 @@ Import the `.ovpn` file in an OpenVPN client:
 
 The server needs OpenVPN 2.6 features for split DNS. Older clients still connect but may not use the VPN resolver.
 
-In password mode the profile uses the OpenVPN `static-challenge` option. The client asks for the password, then shows a second field for the authenticator code. The user types the domain password in the first field and the 6 digits in the second one, or leaves it empty without an authenticator. The code is never appended to the password.
+In password mode the client asks for the user name and the domain password. When the account has an authenticator, the server checks the password, then answers with an OpenVPN dynamic challenge (CRV1). The client opens a second prompt "Authenticator code" and connects again with the 6 digits. The code is never appended to the password. A pending challenge lasts 3 minutes and works once: a wrong code sends the user back to the password.
 
-A client that ignores `static-challenge` sends only the password. Accounts with an authenticator cannot log in from such a client.
+NetworkManager, OpenVPN Connect, OpenVPN GUI and Tunnelblick handle the dynamic challenge. The `openvpn` command line client handles it with `auth-retry interact`, which the profile sets.
 
-The module was tested with the `openvpn` 2.6 command line client.
+Profiles made before this change ask for the code up front with `static-challenge`. The server still accepts them.
+
+The module was tested with the `openvpn` 2.6 command line client and its management interface, which is the path the graphical clients use.
 
 ## Authenticator (TOTP)
 
@@ -103,13 +105,17 @@ After a full login, the server gives the client a session token valid for 12 hou
 
     api-cli run get-login-history --agent module/roadwarrior1 --data '{"name": "john"}'
 
-It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `code_reused`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
+It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `challenge_expired`, `code_reused`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
 
 The history keeps the last 15000 to 20000 events of the instance. The UI shows it per account and can download it as JSON.
 
 ## DNS
 
-A dnsmasq instance listens on the VPN address of the node. It answers the host names of the node HTTP routes with that address, and forwards the Samba realm to the domain controller of the node. Other names go to the resolver of the node. The server pushes this resolver with the domains of those names, so a client that supports split DNS asks it only for them.
+A dnsmasq instance listens on the VPN address of the node. It answers the host names of the node HTTP routes and the FQDN of the node with that address, and forwards the Samba realm to the domain controller of the node. Other names go to the resolver of the node.
+
+The host of the VPN server is never answered with the VPN address, so a client can always reconnect. Use a dedicated name for it, like `vpn.example.org`: if it is the FQDN of the node, cluster-admin on that name stays outside the tunnel.
+
+See [Use the VPN](docs/network.md#use-the-vpn) to check that the traffic of a client goes through the tunnel.
 
 ## Status
 
