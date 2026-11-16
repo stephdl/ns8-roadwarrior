@@ -18,7 +18,6 @@ openvpn)
     mkdir -p /etc/openvpn/run
     if [ "${AUTH_MODE}" = "certificate_password" ]; then
         auth_lines="auth-user-pass-verify /usr/local/bin/ovpn-auth via-file
-script-security 2
 auth-gen-token 43200 external-auth
 auth-gen-token-secret /etc/openvpn/pki/auth-token.key"
     else
@@ -59,6 +58,9 @@ crl-verify /etc/openvpn/pki/crl.pem
 remote-cert-tls client
 data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305
 ${auth_lines}
+script-security 2
+client-connect "/usr/local/bin/ovpn-history connect"
+client-disconnect "/usr/local/bin/ovpn-history disconnect"
 ${push_lines}${dns_lines}
 management /etc/openvpn/run/mgmt.sock unix
 status /etc/openvpn/run/status.log 30

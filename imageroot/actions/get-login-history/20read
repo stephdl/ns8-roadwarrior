@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+events = []
+if om.server_running():
+    proc = om.podman_exec("ovpn-history", "list", request["name"], check=False)
+    if proc.returncode == 0:
+        events = json.loads(proc.stdout)
+json.dump({"name": request["name"], "events": events}, fp=sys.stdout)

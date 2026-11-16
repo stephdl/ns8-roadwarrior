@@ -11,6 +11,6 @@ RUN apk add --no-cache \
         python3 \
         py3-ldap3
 COPY entrypoint.sh /entrypoint.sh
-COPY ovpn-auth ovpn-pki ovpn-mgmt /usr/local/bin/
+COPY ovpn-auth ovpn-pki ovpn-mgmt ovpn-history /usr/local/bin/
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["openvpn"]

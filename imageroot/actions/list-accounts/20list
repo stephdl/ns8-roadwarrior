@@ -13,10 +13,14 @@ accounts = om.load_accounts()
 totp = om.load_totp()
 certs = om.pki_list() if om.server_running() else {}
 connected = set()
+last_login = {}
 if certs:
     proc = om.podman_exec("ovpn-mgmt", "status", check=False)
     if proc.returncode == 0:
         connected = {client["name"] for client in json.loads(proc.stdout)}
+    proc = om.podman_exec("ovpn-history", "last", check=False)
+    if proc.returncode == 0:
+        last_login = json.loads(proc.stdout)
 
 result = []
 for name, info in sorted(accounts.items()):
@@ -27,5 +31,6 @@ for name, info in sorted(accounts.items()):
         "certificate": cert.get("status", "unknown"),
         "totp_enrolled": bool(totp.get(name, {}).get("confirmed")),
         "connected": name in connected,
+        "last_login": last_login.get(name, 0),
     })
 json.dump(result, fp=sys.stdout)
