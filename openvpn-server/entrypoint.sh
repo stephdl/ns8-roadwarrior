@@ -35,7 +35,11 @@ push \"dns server 0 address ${OVPN_SERVER_IP}\""
     if [ -n "${DNS_DOMAINS}" ]; then
         dns_lines="${dns_lines}
 push \"dns server 0 resolve-domains ${DNS_DOMAINS}\""
-        # NetworkManager and Windows route these domains to the VPN resolver
+        # OpenVPN 2.7 clients rebuild the DOMAIN options of their up script from
+        # search-domains only, and NetworkManager reads those to route the domains
+        dns_lines="${dns_lines}
+push \"dns search-domains ${DNS_DOMAINS}\""
+        # Older clients, NetworkManager and Windows route these domains to the VPN resolver
         for domain in ${DNS_DOMAINS}; do
             dns_lines="${dns_lines}
 push \"dhcp-option DOMAIN ${domain}\""
