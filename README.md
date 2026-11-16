@@ -81,6 +81,12 @@ Import the `.ovpn` file in an OpenVPN client:
 - macOS: Tunnelblick, https://tunnelblick.net/
 - Linux: NetworkManager with the OpenVPN plugin, or the `openvpn` command
 
+The VPN carries only the network of the VPN and the names of the node. NetworkManager does not follow the routes of the server: after the import, it sends all the traffic into the tunnel, and the client loses Internet. In the IPv4 settings of the connection, check "Use this connection only for resources on its network", or run:
+
+    nmcli connection modify "NAME@HOST" ipv4.never-default yes ipv6.never-default yes
+
+OpenVPN Connect, OpenVPN GUI and Tunnelblick follow the server and need no change.
+
 The server needs OpenVPN 2.6 features for split DNS. Older clients still connect but may not use the VPN resolver.
 
 In password mode the client asks for the user name and the domain password. When the account has an authenticator, the server checks the password, then answers with an OpenVPN dynamic challenge (CRV1). The client opens a second prompt "Authenticator code" and connects again with the 6 digits. The code is never appended to the password. A pending challenge lasts 3 minutes and works once: a wrong code sends the user back to the password.
