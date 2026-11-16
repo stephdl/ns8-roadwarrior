@@ -99,8 +99,11 @@ def is_true(value):
 
 
 def tun_name():
-    # Interface names stop at 15 characters, firewalld zone names at 17
-    return ("tun" + os.environ["MODULE_ID"])[:15]
+    # Interface names stop at 15 characters, firewalld zone names at 17.
+    # Keep the instance number: roadwarrior1 and roadwarrior12 must not share a tun.
+    module_id = os.environ["MODULE_ID"]
+    number = re.search(r"\d*$", module_id).group()
+    return "tunrw" + number if number else ("tun" + module_id)[:15]
 
 
 def network_parts(cidr):
