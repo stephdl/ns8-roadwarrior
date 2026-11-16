@@ -44,11 +44,19 @@ init)
     fi
     ;;
 add)
-    "${easyrsa}" build-client-full "${2:?name}" nopass >&2
+    name=${2:?name}
+    # A crash between two steps can leave files of a name without a valid certificate
+    if ! grep -q "^V.*/CN=${name}\$" "${pki}/index.txt"; then
+        rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
+    fi
+    "${easyrsa}" build-client-full "${name}" nopass >&2
     ;;
 revoke)
-    "${easyrsa}" revoke "${2:?name}" >&2
+    name=${2:?name}
+    "${easyrsa}" revoke "${name}" >&2
     "${easyrsa}" gen-crl >&2
+    # The serial stays in the CRL: freeing the name lets the account come back with a new certificate
+    rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
     ;;
 profile)
     name=${2:?name}
@@ -86,8 +94,15 @@ EOF
     echo "</tls-crypt>"
     ;;
 list)
-    # index.txt: status, expiry, revocation, serial, file, subject
-    awk -F '\t' '{ n = $6; sub(/.*CN=/, "", n); sub(/\/.*/, "", n); if (n != "server") print n, $1, $2 }' "${pki}/index.txt"
+    # index.txt: status, expiry, revocation, serial, file, subject.
+    # A past expiry keeps the V status until "easyrsa update-db": compare the dates here.
+    # The expiry is YYMMDDhhmmssZ before 2050 and YYYYMMDDhhmmssZ after.
+    awk -F '\t' -v now="$(date -u +%Y%m%d%H%M%SZ)" '{
+        n = $6; sub(/.*CN=/, "", n); sub(/\/.*/, "", n)
+        end = (length($2) == 13 ? "20" : "") $2
+        st = ($1 == "V" && end < now) ? "E" : $1
+        if (n != "server") print n, st, $2
+    }' "${pki}/index.txt"
     ;;
 ca-expiry)
     # ISO 8601 so that every browser parses it
