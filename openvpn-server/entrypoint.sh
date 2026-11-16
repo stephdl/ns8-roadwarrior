@@ -47,6 +47,8 @@ ifconfig-noexec
 route-noexec
 port ${OVPN_PORT}
 proto udp
+# Reply from the address the client contacted: the node can hold several addresses
+multihome
 tls-server
 ca /etc/openvpn/pki/ca.crt
 cert /etc/openvpn/pki/issued/server.crt
