@@ -90,7 +90,8 @@ list)
     awk -F '\t' '{ n = $6; sub(/.*CN=/, "", n); sub(/\/.*/, "", n); if (n != "server") print n, $1, $2 }' "${pki}/index.txt"
     ;;
 ca-expiry)
-    openssl x509 -in "${pki}/ca.crt" -noout -enddate | cut -d= -f2
+    # ISO 8601 so that every browser parses it
+    openssl x509 -in "${pki}/ca.crt" -noout -enddate -dateopt iso_8601 | cut -d= -f2 | sed 's/ /T/' 
     ;;
 *)
     echo "usage: ovpn-pki init|add|revoke|profile|list|ca-expiry" >&2
