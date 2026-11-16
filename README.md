@@ -4,6 +4,8 @@ OpenVPN road warrior server for NethServer 8.
 
 Remote users connect to one node. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
 
+See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
+
 The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
 
 The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
@@ -113,9 +115,13 @@ A dnsmasq instance listens on the VPN address of the node. It answers the host n
 
 `get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The UI warns 90 days before the CA expires.
 
-## Backup
+## Backup, restore, clone and move
 
-The backup holds the PKI, the login history, the accounts and the authenticator secrets. A restore runs `configure-module` again with the saved settings.
+The backup holds the settings, the PKI with the revocation list, the accounts, the authenticator secrets, the used codes and the login history. A restore, a clone or a move runs `configure-module` again with the saved settings: it creates the tun, the firewall zone and the public port on the target node.
+
+The CA is the same, so the profiles already sent stay valid. They point to the old host until the host name points to the new node.
+
+On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. Remove the original, then save the settings of the copy again.
 
 ## Uninstall
 
