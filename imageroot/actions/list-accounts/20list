@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import ovpn_module as om
+
+accounts = om.load_accounts()
+totp = om.load_totp()
+certs = om.pki_list() if om.server_running() else {}
+connected = set()
+if certs:
+    proc = om.podman_exec("ovpn-mgmt", "status", check=False)
+    if proc.returncode == 0:
+        connected = {client["name"] for client in json.loads(proc.stdout)}
+
+result = []
+for name, info in sorted(accounts.items()):
+    cert = certs.get(name, {})
+    result.append({
+        "name": name,
+        "created": info.get("created", ""),
+        "certificate": cert.get("status", "unknown"),
+        "totp_enrolled": bool(totp.get(name, {}).get("confirmed")),
+        "connected": name in connected,
+    })
+json.dump(result, fp=sys.stdout)

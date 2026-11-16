@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# For a lost phone. With totp_required the user cannot log in until a new enrollment.
+
+import json
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+totp = om.load_totp()
+if totp.pop(name, None) is not None:
+    om.save_totp(totp)

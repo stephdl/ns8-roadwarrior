@@ -1,0 +1,266 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+"""Shared helpers of the OpenVPN module. Every path is relative to the module state directory."""
+
+import base64
+import hashlib
+import hmac
+import ipaddress
+import json
+import os
+import re
+import shlex
+import struct
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+
+import agent
+import agent.ldapproxy
+
+CONTAINER = "openvpn-server"
+RUNTIME_DIR = "ovpn"
+SERVER_ENV = "ovpn/server.env"
+AUTH_JSON = "ovpn/auth.json"
+HOSTS = "ovpn/hosts"
+DNSMASQ_CONF = "ovpn/dnsmasq.conf"
+LDAP_PASSWORD = "secrets/ldap-bind-password"
+TOTP_FILE = "secrets/totp.json"
+ACCOUNTS = "accounts.json"
+
+SETTINGS_DEFAULTS = {
+    "OVPN_HOST": "",
+    "OVPN_PORT": "1194",
+    "OVPN_NETWORK": "10.8.0.0/24",
+    "OVPN_AUTH_MODE": "certificate_password",
+    "OVPN_USER_DOMAIN": "",
+    "OVPN_TOTP_REQUIRED": "False",
+    "OVPN_EXPOSE_SAMBA": "False",
+}
+
+# Ports of samba, from ns8-samba create-module/70firewall
+SAMBA_PORTS = [
+    "53/tcp", "53/udp", "88/tcp", "88/udp", "135/tcp", "137/udp", "138/udp", "139/tcp",
+    "389/tcp", "389/udp", "445/tcp", "464/tcp", "464/udp", "636/tcp", "3268/tcp", "3269/tcp",
+    "49152-65535/tcp",
+]
+# Traefik for the web apps, the VPN resolver for the names
+BASE_PORTS = ["80/tcp", "443/tcp", "53/tcp", "53/udp"]
+
+NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def log(*args):
+    print(*args, file=sys.stderr)
+
+
+def write_private(path, text):
+    os.makedirs(os.path.dirname(path) or ".", mode=0o700, exist_ok=True)
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def load_json(path, default):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return default
+
+
+def save_json(path, data, private=False):
+    text = json.dumps(data, indent=2, sort_keys=True)
+    if private:
+        write_private(path, text)
+    else:
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(text)
+        os.replace(tmp, path)
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def settings(env=None):
+    env = os.environ if env is None else env
+    return {key: env.get(key) or default for key, default in SETTINGS_DEFAULTS.items()}
+
+
+def is_true(value):
+    return str(value) == "True"
+
+
+def tun_name():
+    # Interface names stop at 15 characters, firewalld zone names at 17
+    return ("tun" + os.environ["MODULE_ID"])[:15]
+
+
+def network_parts(cidr):
+    net = ipaddress.ip_network(cidr, strict=True)
+    server_ip = str(next(net.hosts()))
+    return net, server_ip
+
+
+def is_configured():
+    return bool(os.environ.get("OVPN_HOST"))
+
+
+def samba_on_node(rdb, node_id):
+    """Return (module_id, realm, ip) of the samba DC of this node, or None."""
+    for key in rdb.scan_iter("module/*/environment"):
+        module_id = key.split("/")[1]
+        env = rdb.hgetall(key)
+        if env.get("NODE_ID") == str(node_id) and env.get("REALM") and env.get("IPADDRESS") \
+                and "account_provider" in rdb.smembers(f"module/{module_id}/flags"):
+            return module_id, env["REALM"].lower(), env["IPADDRESS"]
+    return None
+
+
+def traefik_hosts(rdb, node_id):
+    traefik = rdb.get(f"node/{node_id}/default_instance/traefik")
+    if not traefik:
+        return []
+    return sorted(rdb.smembers(f"module/{traefik}/hosts"))
+
+
+def firewall_ports(expose_samba):
+    ports = list(BASE_PORTS)
+    if expose_samba:
+        ports += [p for p in SAMBA_PORTS if p not in ports]
+    return ports
+
+
+def write_runtime(rdb=None):
+    """Write the files read by the server container: server.env, auth.json, the resolver files and the LDAP password."""
+    rdb = rdb or agent.redis_connect(use_replica=True)
+    conf = settings()
+    node_id = os.environ["NODE_ID"]
+    net, server_ip = network_parts(conf["OVPN_NETWORK"])
+    samba = samba_on_node(rdb, node_id) if is_true(conf["OVPN_EXPOSE_SAMBA"]) else None
+    hosts = traefik_hosts(rdb, node_id)
+
+    push_routes = []
+    # Parent domains, not host names: a new app of the same domain needs no new push to the clients
+    domains = {host.split(".", 1)[1] if host.count(".") >= 2 else host for host in hosts}
+    if samba:
+        push_routes.append(f"{samba[2]}/255.255.255.255")
+        domains.add(samba[1])
+    domains = sorted(domains)
+
+    try:
+        with open(SERVER_ENV) as f:
+            old_server_env = f.read()
+    except FileNotFoundError:
+        old_server_env = ""
+    os.makedirs(RUNTIME_DIR, exist_ok=True)
+    server_env = {
+        "OVPN_TUN": os.environ["OVPN_TUN"],
+        "OVPN_NETWORK": str(net.network_address),
+        "OVPN_NETMASK": str(net.netmask),
+        "OVPN_SERVER_IP": server_ip,
+        "OVPN_PORT": conf["OVPN_PORT"],
+        "OVPN_REMOTE": conf["OVPN_HOST"],
+        "OVPN_CA_CN": f"{os.environ['MODULE_ID']} {conf['OVPN_HOST']}",
+        "AUTH_MODE": conf["OVPN_AUTH_MODE"],
+        "PUSH_ROUTES": " ".join(push_routes),
+        "DNS_DOMAINS": " ".join(domains),
+    }
+    new_server_env = "".join(f"{k}={shlex.quote(v)}\n" for k, v in server_env.items())
+    with open(SERVER_ENV, "w") as f:
+        f.write(new_server_env)
+
+    with open(HOSTS, "w") as f:
+        f.write("".join(f"{server_ip} {host}\n" for host in hosts))
+    with open(DNSMASQ_CONF, "w") as f:
+        f.write("domain-needed\n")
+        if samba:
+            # The realm and its SRV records come from the samba DNS
+            f.write(f"server=/{samba[1]}/{samba[2]}\n")
+
+    auth = {"totp_required": is_true(conf["OVPN_TOTP_REQUIRED"])}
+    domain = conf["OVPN_USER_DOMAIN"]
+    if conf["OVPN_AUTH_MODE"] == "certificate_password" and domain:
+        ldap = agent.ldapproxy.Ldapproxy().get_domain(domain)
+        if ldap is None:
+            log(agent.SD_WARNING + f"user domain {domain} not found: password logins will fail")
+        else:
+            auth.update({k: ldap[k] for k in ("host", "port", "schema", "base_dn", "bind_dn")})
+            write_private(LDAP_PASSWORD, ldap["bind_password"])
+    save_json(AUTH_JSON, auth)
+    # True when the server must restart to push the new settings
+    return new_server_env != old_server_env
+
+
+def podman_exec(*args, check=True):
+    proc = subprocess.run(["podman", "exec", CONTAINER, *args], capture_output=True, text=True)
+    if proc.stderr:
+        log(proc.stderr.rstrip())
+    if check and proc.returncode != 0:
+        raise RuntimeError(f"{' '.join(args)} failed with exit code {proc.returncode}")
+    return proc
+
+
+def server_running():
+    return subprocess.run(["systemctl", "--user", "-q", "is-active", "openvpn-server.service"]).returncode == 0
+
+
+def pki_list():
+    """Return {name: {"status": "valid"|"revoked"|"expired", "expires": "YYMMDDhhmmssZ"}} for the client certificates."""
+    states = {"V": "valid", "R": "revoked", "E": "expired"}
+    certs = {}
+    for line in podman_exec("ovpn-pki", "list").stdout.splitlines():
+        name, status, expiry = line.split(" ", 2)
+        # A name revoked then issued again keeps one line per certificate: the last one wins
+        certs[name] = {"status": states.get(status, status), "expires": expiry}
+    return certs
+
+
+def load_accounts():
+    return load_json(ACCOUNTS, {})
+
+
+def save_accounts(accounts):
+    save_json(ACCOUNTS, accounts)
+
+
+def load_totp():
+    return load_json(TOTP_FILE, {})
+
+
+def save_totp(data):
+    save_json(TOTP_FILE, data, private=True)
+
+
+def totp_ok(secret, code, step=30, window=1):
+    # Same check as ovpn-auth in the server image
+    if not (code.isdigit() and len(code) == 6):
+        return False
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    counter_now = int(time.time()) // step
+    for counter in range(counter_now - window, counter_now + window + 1):
+        digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        value = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1000000
+        if hmac.compare_digest(f"{value:06d}", code):
+            return True
+    return False
+
+
+def fail_validation(field, value, error):
+    agent.set_status("validation-failed")
+    json.dump([{"field": field, "parameter": field, "value": value, "error": error}], fp=sys.stdout)
+    sys.exit(2)
+
+
+def require_server():
+    if not server_running():
+        fail_validation("name", "", "server_not_running")

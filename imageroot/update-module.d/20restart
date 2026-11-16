@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+exec 1>&2
+
+if ! grep -q '^OVPN_HOST=' environment; then
+    # Not configured yet: nothing runs
+    exit 0
+fi
+
+systemctl --user try-restart openvpn-server.service openvpn-dns.service

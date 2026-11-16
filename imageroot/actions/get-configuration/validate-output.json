@@ -1,0 +1,89 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Get roadwarrior configuration",
+    "$id": "http://schema.nethserver.org/roadwarrior/get-configuration-output.json",
+    "description": "Settings of the module. No secret is returned.",
+    "examples": [
+        {
+            "configured": true,
+            "host": "vpn.example.org",
+            "port": 1194,
+            "network": "10.8.0.0/24",
+            "auth_mode": "certificate_password",
+            "user_domain": "example.org",
+            "totp_required": false,
+            "expose_samba": true,
+            "user_domains": [
+                "example.org"
+            ],
+            "samba_available": true,
+            "server_ip": "10.8.0.1",
+            "ip_allowlist": "10.8.0.0/24",
+            "has_accounts": false
+        }
+    ],
+    "type": "object",
+    "required": [
+        "configured",
+        "host",
+        "port",
+        "network",
+        "auth_mode",
+        "user_domain",
+        "totp_required",
+        "expose_samba",
+        "user_domains",
+        "samba_available",
+        "server_ip",
+        "ip_allowlist",
+        "has_accounts"
+    ],
+    "properties": {
+        "configured": {
+            "type": "boolean"
+        },
+        "host": {
+            "type": "string"
+        },
+        "port": {
+            "type": "integer"
+        },
+        "network": {
+            "type": "string"
+        },
+        "auth_mode": {
+            "type": "string",
+            "enum": [
+                "certificate",
+                "certificate_password"
+            ]
+        },
+        "user_domain": {
+            "type": "string"
+        },
+        "totp_required": {
+            "type": "boolean"
+        },
+        "expose_samba": {
+            "type": "boolean"
+        },
+        "user_domains": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "samba_available": {
+            "type": "boolean"
+        },
+        "server_ip": {
+            "type": "string"
+        },
+        "ip_allowlist": {
+            "type": "string"
+        },
+        "has_accounts": {
+            "type": "boolean"
+        }
+    }
+}

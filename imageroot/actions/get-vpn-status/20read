@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import ovpn_module as om
+
+status = {"running": om.server_running(), "sessions": [], "ca_expiry": ""}
+if status["running"]:
+    proc = om.podman_exec("ovpn-mgmt", "status", check=False)
+    if proc.returncode == 0:
+        status["sessions"] = json.loads(proc.stdout)
+    status["ca_expiry"] = om.podman_exec("ovpn-pki", "ca-expiry", check=False).stdout.strip()
+json.dump(status, fp=sys.stdout)

@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import os
+import socket
+import sys
+import agent
+import agent.ldapproxy
+import ovpn_module as om
+
+rdb = agent.redis_connect(use_replica=True)
+conf = om.settings()
+net, server_ip = om.network_parts(conf["OVPN_NETWORK"])
+samba = om.samba_on_node(rdb, os.environ["NODE_ID"])
+json.dump({
+    "configured": om.is_configured(),
+    # First setup: offer the node name, the admin fixes it if clients reach the node another way
+    "host": conf["OVPN_HOST"] or socket.getfqdn(),
+    "port": int(conf["OVPN_PORT"]),
+    "network": conf["OVPN_NETWORK"],
+    "auth_mode": conf["OVPN_AUTH_MODE"],
+    "user_domain": conf["OVPN_USER_DOMAIN"],
+    "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
+    "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+    "user_domains": agent.ldapproxy.Ldapproxy().get_domains_list(),
+    "samba_available": samba is not None,
+    "server_ip": server_ip,
+    # Paste it into "Allow access from" of an HTTP route to keep the app for the VPN clients
+    "ip_allowlist": net.with_prefixlen,
+    "has_accounts": bool(om.load_accounts()),
+}, fp=sys.stdout)

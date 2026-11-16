@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+om.require_server()
+accounts = om.load_accounts()
+if name in accounts:
+    om.fail_validation("name", name, "account_exists")
+if name == "server":
+    om.fail_validation("name", name, "name_reserved")
+om.podman_exec("ovpn-pki", "add", name)
+accounts[name] = {"created": om.now()}
+om.save_accounts(accounts)

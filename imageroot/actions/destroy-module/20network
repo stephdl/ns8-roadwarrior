@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import os
+import subprocess
+import agent
+
+# The core stops the services later, at 50destroy: while OpenVPN holds the tun, remove-tun fails with "busy"
+subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
+
+# The zone and the tun belong to the node: they outlive the module unless removed here
+tun = os.environ.get("OVPN_TUN")
+if tun:
+    agent.remove_custom_zone(tun)
+    if os.environ.get("OVPN_TUN_IP"):
+        agent.remove_tun(tun)
+agent.remove_public_service(os.environ["MODULE_ID"])

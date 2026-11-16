@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "confirm-totp input",
+    "$id": "http://schema.nethserver.org/roadwarrior/confirm-totp-input.json",
+    "description": "Activate the pending authenticator secret of an account with a code of the app",
+    "examples": [
+        {
+            "name": "alice",
+            "code": "123456"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "name",
+        "code"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+        }
+    }
+}

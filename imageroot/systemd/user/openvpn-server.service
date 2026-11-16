@@ -1,0 +1,37 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Host network: OpenVPN opens the tun created by the core and the clients reach the node services
+# with their VPN address. label=disable is needed to open /dev/net/tun under SELinux.
+
+[Unit]
+Description=Podman openvpn-server.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+Restart=always
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/openvpn-server.pid %t/openvpn-server.ctr-id
+ExecStartPre=runagent ovpn-write-runtime
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-server.pid \
+    --cidfile %t/openvpn-server.ctr-id --cgroups=no-conmon \
+    --replace -d --name openvpn-server \
+    --network=host \
+    --device /dev/net/tun \
+    --security-opt label=disable \
+    --volume openvpn-data:/etc/openvpn:z \
+    --volume ./ovpn:/run/ovpn:ro,z \
+    --volume ./secrets:/run/ovpn-secrets:ro,z \
+    ${OPENVPN_SERVER_IMAGE} openvpn
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-server.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-server.ctr-id
+PIDFile=%t/openvpn-server.pid
+SyslogIdentifier=%u
+
+[Install]
+WantedBy=default.target

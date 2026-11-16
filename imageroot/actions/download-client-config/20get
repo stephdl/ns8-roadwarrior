@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# The profile embeds the private key of the client: the UI must hide the task output
+
+import json
+import os
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+om.require_server()
+if name not in om.load_accounts():
+    om.fail_validation("name", name, "account_not_found")
+if om.pki_list().get(name, {}).get("status") != "valid":
+    om.fail_validation("name", name, "certificate_not_valid")
+
+totp = om.load_totp().get(name, {})
+ask_code = om.is_true(os.environ.get("OVPN_TOTP_REQUIRED")) or bool(totp.get("confirmed"))
+args = ["ovpn-pki", "profile", name] + (["totp"] if ask_code else [])
+profile = om.podman_exec(*args).stdout
+json.dump({"filename": f"{name}@{os.environ.get('OVPN_HOST', 'vpn')}.ovpn", "profile": profile}, fp=sys.stdout)

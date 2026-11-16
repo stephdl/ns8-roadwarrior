@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Users of the bound user domain, for the account picker of the UI
+
+import json
+import os
+import sys
+import agent.ldapproxy
+from agent.ldapclient import Ldapclient
+
+domain = os.environ.get("OVPN_USER_DOMAIN", "")
+users = []
+if domain:
+    conf = agent.ldapproxy.Ldapproxy().get_domain(domain)
+    if conf:
+        users = [{"user": u["user"], "display_name": u.get("display_name") or ""}
+                 for u in Ldapclient.factory(**conf).list_users() if not u.get("locked")]
+json.dump(sorted(users, key=lambda u: u["user"].lower()), fp=sys.stdout)

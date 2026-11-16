@@ -1,0 +1,35 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Resolver of the VPN clients, on the tun address: the names of the web apps answer with that address,
+# so the browser goes through the tunnel and Traefik sees the VPN address of the client.
+
+[Unit]
+Description=Podman openvpn-dns.service
+After=openvpn-server.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+Restart=always
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/openvpn-dns.pid %t/openvpn-dns.ctr-id
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-dns.pid \
+    --cidfile %t/openvpn-dns.ctr-id --cgroups=no-conmon \
+    --replace -d --name openvpn-dns \
+    --network=host \
+    --volume ./ovpn:/run/ovpn:ro,z \
+    ${OPENVPN_SERVER_IMAGE} dnsmasq
+# dnsmasq reads the hosts file again on SIGHUP
+ExecReload=/usr/bin/podman kill -s HUP openvpn-dns
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-dns.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-dns.ctr-id
+PIDFile=%t/openvpn-dns.pid
+SyslogIdentifier=%u
+
+[Install]
+WantedBy=default.target

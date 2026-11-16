@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# The core owns the tun, its zone and the public port: the module runs rootless and only asks for them.
+# Clients reach this node alone: no forward, so Traefik and samba see the VPN address of the client.
+
+import os
+import subprocess
+import agent
+import ovpn_module as om
+
+conf = om.settings()
+tun = os.environ["OVPN_TUN"]
+net, server_ip = om.network_parts(conf["OVPN_NETWORK"])
+tun_ip = f"{server_ip}/{net.prefixlen}"
+
+# tun-manager only sets the address when it starts: a new network needs a new tun
+if os.environ.get("OVPN_TUN_IP") != tun_ip:
+    if os.environ.get("OVPN_TUN_IP"):
+        # OpenVPN holds the tun open: tun-manager cannot delete a busy device
+        subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
+        agent.remove_tun(tun)
+    agent.assert_exp(agent.add_tun(tun, tun_ip), "tun creation failed")
+    agent.set_env("OVPN_TUN_IP", tun_ip)
+
+# The core refuses an empty rule list. SSH stays closed to the VPN clients.
+rules = [f"rule family=ipv4 source address={net.with_prefixlen} port port=22 protocol=tcp reject"]
+agent.assert_exp(agent.add_custom_zone(tun, tun, om.firewall_ports(om.is_true(conf["OVPN_EXPOSE_SAMBA"])), rules),
+                 "firewall zone configuration failed")
+agent.assert_exp(agent.add_public_service(os.environ["MODULE_ID"], [f"{conf['OVPN_PORT']}/udp"], replace_ports=True),
+                 "firewall port configuration failed")

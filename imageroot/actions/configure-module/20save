@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import agent
+
+request = json.load(sys.stdin)
+password_mode = request["auth_mode"] == "certificate_password"
+domain = request.get("user_domain", "") if password_mode else ""
+
+agent.set_env("OVPN_HOST", request["host"])
+agent.set_env("OVPN_PORT", str(request["port"]))
+agent.set_env("OVPN_NETWORK", request["network"])
+agent.set_env("OVPN_AUTH_MODE", request["auth_mode"])
+agent.set_env("OVPN_USER_DOMAIN", domain)
+agent.set_env("OVPN_TOTP_REQUIRED", str(bool(request.get("totp_required")) and password_mode))
+agent.set_env("OVPN_EXPOSE_SAMBA", str(bool(request.get("expose_samba"))))
+agent.bind_user_domains([domain] if domain else [])

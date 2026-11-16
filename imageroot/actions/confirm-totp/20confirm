@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+totp = om.load_totp()
+entry = totp.get(name, {})
+if not entry.get("pending"):
+    om.fail_validation("code", request["code"], "no_pending_enrollment")
+if not om.totp_ok(entry["pending"], request["code"]):
+    om.fail_validation("code", request["code"], "wrong_code")
+totp[name] = {"secret": entry["pending"], "confirmed": True, "enrolled": om.now()}
+om.save_totp(totp)

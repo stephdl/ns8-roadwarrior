@@ -1,0 +1,63 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Configure roadwarrior",
+    "$id": "http://schema.nethserver.org/roadwarrior/configure-module-input.json",
+    "description": "Configure the OpenVPN road warrior server of this node",
+    "examples": [
+        {
+            "host": "vpn.example.org",
+            "port": 1194,
+            "network": "10.8.0.0/24",
+            "auth_mode": "certificate_password",
+            "user_domain": "example.org",
+            "totp_required": false,
+            "expose_samba": true
+        }
+    ],
+    "type": "object",
+    "required": [
+        "host",
+        "port",
+        "network",
+        "auth_mode"
+    ],
+    "properties": {
+        "host": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "pattern": "^[A-Za-z0-9.:-]+$",
+            "description": "Public host name or IP address the clients connect to"
+        },
+        "port": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 65535,
+            "description": "Public UDP port of the server"
+        },
+        "network": {
+            "type": "string",
+            "description": "IPv4 network of the VPN clients, like 10.8.0.0/24"
+        },
+        "auth_mode": {
+            "type": "string",
+            "enum": [
+                "certificate",
+                "certificate_password"
+            ],
+            "description": "certificate: the client certificate alone. certificate_password: the certificate and the password of the user domain."
+        },
+        "user_domain": {
+            "type": "string",
+            "description": "User domain checked for the password. Required with certificate_password."
+        },
+        "totp_required": {
+            "type": "boolean",
+            "description": "Refuse password logins of accounts without an authenticator"
+        },
+        "expose_samba": {
+            "type": "boolean",
+            "description": "Open the samba DC of this node to the VPN clients"
+        }
+    }
+}

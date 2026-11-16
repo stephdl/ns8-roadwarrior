@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Traefik publishes this event when its host names change. New apps must resolve to the tun address.
+
+import json
+import os
+import subprocess
+import sys
+import ovpn_module as om
+
+event = json.load(sys.stdin)
+if not om.is_configured() or str(event.get("node_id")) != os.environ["NODE_ID"]:
+    sys.exit(0)
+if om.write_runtime():
+    # A new domain changes what the server pushes: clients reconnect on their own
+    subprocess.run(["systemctl", "--user", "try-restart", "openvpn-server.service"], check=False)
+subprocess.run(["systemctl", "--user", "reload", "openvpn-dns.service"], check=False)
