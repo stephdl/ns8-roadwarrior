@@ -27,7 +27,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-server.pid \
     --volume openvpn-data:/etc/openvpn:z \
     --volume ./ovpn:/run/ovpn:ro,z \
     --volume ./secrets:/run/ovpn-secrets:ro,z \
-    ${OPENVPN_SERVER_IMAGE} openvpn
+    ${ROADWARRIOR_SERVER_IMAGE} openvpn
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-server.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-server.ctr-id
 PIDFile=%t/openvpn-server.pid
