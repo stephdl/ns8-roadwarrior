@@ -6,8 +6,9 @@
 #
 
 # A restore or a move with "replace" installs the copy before it removes the original.
-# The copy stays stopped while the original holds the tun network and the UDP port:
-# once the original is gone from this node, try to start it again.
+# The copy stays stopped while the original holds the tun network and the UDP port, and
+# leaves a marker: once a module leaves this node, try to start it again. Without the marker
+# the VPN stopped for another reason, and removing an app must not touch it.
 
 import json
 import os
@@ -18,6 +19,6 @@ import ovpn_module as om
 event = json.load(sys.stdin)
 if str(event.get("node")) != os.environ["NODE_ID"] or event.get("module") == os.environ["MODULE_ID"]:
     sys.exit(0)
-if not om.is_configured() or om.server_running():
+if not os.path.exists(om.WAITING) or om.server_running():
     sys.exit(0)
 sys.exit(subprocess.run(["ovpn-reconfigure"], check=False).returncode)

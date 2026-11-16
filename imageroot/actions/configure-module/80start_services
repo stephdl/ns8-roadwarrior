@@ -8,6 +8,7 @@
 set -e
 exec 1>&2
 
+rm -f waiting-for-original
 systemctl --user enable openvpn-server.service openvpn-dns.service
 if [ -e ovpn/restart-needed ]; then
     systemctl --user restart openvpn-server.service openvpn-dns.service

@@ -10,7 +10,8 @@
 # so the copy must create them again. The PKI comes with the state: profiles stay valid.
 #
 # If the original instance still runs on this node, its port and network conflict.
-# The copy then stays stopped, and the admin saves the settings again once the original is gone.
+# The copy then stays stopped and leaves a marker: the module-removed event starts it
+# once the original is gone. Other validation errors need the admin, not a retry.
 
 import json
 import os
@@ -31,11 +32,21 @@ data = {
     "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
     "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
 }
+# Errors an original instance on the same node causes, and that its removal clears
+CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
+
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
     subprocess.run(["systemctl", "--user", "disable", "--now", "openvpn-server.service", "openvpn-dns.service"], check=False)
-    print(agent.SD_WARNING + "The VPN stays stopped, its settings conflict with this node: "
-          + json.dumps(response["output"]), file=sys.stderr)
-    print(agent.SD_WARNING + "Remove the original instance, then save the settings again", file=sys.stderr)
+    errors = response["output"] if isinstance(response["output"], list) else []
+    if errors and all((e.get("parameter"), e.get("error")) in CONFLICTS for e in errors):
+        open(om.WAITING, "w").close()
+        print(agent.SD_WARNING + "The VPN stays stopped until the instance that holds its network and port is removed: "
+              + json.dumps(errors), file=sys.stderr)
+    else:
+        print(agent.SD_WARNING + "The VPN stays stopped, its settings are not valid on this node. Fix them and save again: "
+              + json.dumps(response["output"]), file=sys.stderr)
     sys.exit(0)
 agent.assert_exp(response["exit_code"] == 0, "configure-module failed")
+if os.path.exists(om.WAITING):
+    os.unlink(om.WAITING)
