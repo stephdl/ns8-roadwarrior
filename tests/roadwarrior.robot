@@ -46,6 +46,42 @@ Save profile
     ...    return_rc=True  return_stdout=False
     Should Be Equal As Integers    ${rc}  0
 
+Run task
+    [Arguments]    ${action}    ${input}
+    ${stdout}    ${stderr}    ${rc} =    Execute Command    api-cli run ${action} --data '${input}'
+    ...    return_stdout=True    return_stderr=True    return_rc=True
+    Should Be Equal As Integers    ${rc}    0    ${action} failed: ${stderr}
+    IF    len($stdout) > 0
+        ${response} =    Evaluate    json.loads($stdout)    modules=json
+    ELSE
+        ${response} =    Set Variable    ${stdout}
+    END
+    RETURN    ${response}
+
+Fingerprint
+    [Documentation]    SHA-256 fingerprint of a certificate in the PKI of the module
+    [Arguments]    ${file}
+    ${output} =    Execute Command    runagent -m ${module_id} podman exec openvpn-server openssl x509 -in /etc/openvpn/pki/${file} -noout -fingerprint -sha256
+    Should Contain    ${output}    Fingerprint
+    RETURN    ${output}
+
+Server is running
+    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-server
+    Should Be Equal    ${output}    active
+
+Module environment
+    [Arguments]    ${name}
+    ${output} =    Execute Command    runagent -m ${module_id} printenv ${name}
+    RETURN    ${output.strip()}
+
+Client is connected
+    ${output} =    Execute Command    podman logs rw-client 2>&1 | grep -c 'Initialization Sequence Completed'
+    Should Not Be Equal As Strings    ${output}    0
+
+Client stopped on halt
+    ${output} =    Execute Command    podman logs rw-client 2>&1 | grep -c server-pushed-halt; podman rm -f rw-client >/dev/null 2>&1
+    Should Be Equal As Strings    ${output}    1
+
 Connect client
     [Documentation]    ${args} is one shell string: the credentials, then "--" and the command run in the client
     [Arguments]    ${profile}    ${args}=${EMPTY}
@@ -124,6 +160,13 @@ Check if a renewed certificate replaces the old profile
     ${output} =    Connect client    laptop1-old
     Should Contain    ${output}    refused
 
+Check if a disconnect stops the client
+    # The client stays up in the background, the kill must make it exit instead of reconnecting
+    Execute Command    RW_KEEP_CLIENT=1 nohup bash /root/vpn-client.sh ${client_image} /root/rw-laptop1.ovpn -- sleep 90 >/dev/null 2>&1 &
+    Wait Until Keyword Succeeds    40 seconds    2 seconds    Client is connected
+    Run module action    kill-session    {"name": "laptop1"}
+    Wait Until Keyword Succeeds    30 seconds    2 seconds    Client stopped on halt
+
 Check if a removed account cannot connect
     Run module action    remove-account    {"name": "laptop1"}
     ${output} =    Connect client    laptop1
@@ -186,6 +229,80 @@ Check if the login history records the attempts
     ${output} =    Run module action    get-login-history    {"name": "rwci"}
     Should Contain    ${output}    "event": "login"
     Should Contain    ${output}    "reason": "wrong_password"
+
+Record the PKI before the backup
+    ${ca} =    Fingerprint    ca.crt
+    ${cert} =    Fingerprint    issued/rwci.crt
+    ${accounts} =    Run module action    list-accounts
+    ${uuid} =    Module environment    MODULE_UUID
+    ${node} =    Module environment    NODE_ID
+    Set Suite Variable    ${ca_sum}    ${ca}
+    Set Suite Variable    ${cert_sum}    ${cert}
+    Set Suite Variable    ${accounts_before}    ${accounts}
+    Set Suite Variable    ${module_uuid}    ${uuid}
+    Set Suite Variable    ${module_node}    ${node}
+    Set Suite Variable    ${old_module_id}    ${module_id}
+
+Back up roadwarrior
+    # A repository URL must be unique: reuse the one of the node if it exists
+    ${ip} =    Execute Command    redis-cli hget node/${module_node}/vpn ip_address
+    ${url} =    Set Variable    webdav:http://${ip.strip()}:4694
+    ${repos} =    Run task    cluster/list-backup-repositories    {}
+    ${found} =    Evaluate    [r['id'] for r in $repos['repositories'] if r['url'] == $url]
+    IF    ${found}
+        Set Suite Variable    ${repository}    ${found}[0]
+        Set Suite Variable    ${repository_created}    ${FALSE}
+    ELSE
+        ${out} =    Run task    cluster/add-backup-repository
+        ...    {"provider":"cluster","name":"roadwarrior-test","url":"${url}","password":"","parameters":{}}
+        Set Suite Variable    ${repository}    ${out}[id]
+        Set Suite Variable    ${repository_created}    ${TRUE}
+    END
+    # run-backup skips a disabled backup: enable it on a far schedule
+    ${bid} =    Run task    cluster/add-backup
+    ...    {"name":"roadwarrior-test","instances":["${module_id}"],"repository":"${repository}","schedule":"*-12-31 03:17:00","retention":1,"enabled":true}
+    Set Suite Variable    ${backup_id}    ${bid}
+    Run task    cluster/run-backup    {"id":${backup_id}}
+    ${snapshots} =    Run task    cluster/read-backup-snapshots
+    ...    {"repository":"${repository}","path":"roadwarrior/${module_uuid}"}
+    Should Not Be Empty    ${snapshots}
+    Set Suite Variable    ${snapshot}    ${snapshots}[-1][id]
+
+Restore roadwarrior in place
+    ${out} =    Run task    cluster/restore-module
+    ...    {"repository":"${repository}","path":"roadwarrior/${module_uuid}","snapshot":"${snapshot}","node":${module_node},"replace":true}
+    Should Be Equal    ${out}[module_uuid]    ${module_uuid}
+    Should Not Be Equal    ${out}[module_id]    ${old_module_id}
+    Set Global Variable    ${module_id}    ${out}[module_id]
+    ${name} =    Module environment    OVPN_TUN
+    Set Global Variable    ${tun}    ${name}
+    ${rc} =    Execute Command    runagent -m ${old_module_id} true
+    ...    return_rc=True    return_stdout=False
+    Should Not Be Equal As Integers    ${rc}    0    ${old_module_id} must be gone after a replace
+
+Check if the restore keeps the CA, the certificates and the accounts
+    # The copy starts once the replaced instance is gone, through the module-removed event
+    Wait Until Keyword Succeeds    120 seconds    5 seconds    Server is running
+    ${ca} =    Fingerprint    ca.crt
+    Should Be Equal    ${ca}    ${ca_sum}
+    ${cert} =    Fingerprint    issued/rwci.crt
+    Should Be Equal    ${cert}    ${cert_sum}
+    ${accounts} =    Run module action    list-accounts
+    Should Contain    ${accounts}    "name": "rwci"
+    Should Contain    ${accounts}    "totp_enrolled": true
+
+Check if a profile made before the backup still connects
+    Wait Until Keyword Succeeds    120 seconds    5 seconds    Server is running
+    # The account has an authenticator: the client gets the code challenge, which proves
+    # the server accepted the old certificate and the password
+    ${output} =    Connect client    rwci    rwci '${USER_PASSWORD}'
+    Should Contain    ${output}    CRV1
+
+Remove the test backup
+    Run task    cluster/remove-backup    {"id":${backup_id}}
+    IF    ${repository_created}
+        Run task    cluster/remove-backup-repository    {"id":"${repository}"}
+    END
 
 Take screenshots
     [Tags]    ui

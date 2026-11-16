@@ -27,7 +27,13 @@ fi
 [ "${1:-}" = "--" ] && shift
 
 workdir=$(mktemp -d /var/tmp/rw-client.XXXXXX)
-trap 'podman rm -f rw-client >/dev/null 2>&1; rm -rf "${workdir}"' EXIT
+# RW_KEEP_CLIENT=1 leaves the container for the caller, to read its logs
+if [ "${RW_KEEP_CLIENT:-}" = 1 ]; then
+    # The client still reads its profile: the caller removes the container, /var/tmp is cleaned by the system
+    trap '' EXIT
+else
+    trap 'podman rm -f rw-client >/dev/null 2>&1; rm -rf "${workdir}"' EXIT
+fi
 cp "${profile}" "${workdir}/client.ovpn"
 args=()
 if [ -n "${user}" ]; then
@@ -50,6 +56,11 @@ for _ in $(seq 1 30); do
             exit $?
         fi
         exit 0
+    fi
+    # The server accepted certificate and password, and asks the authenticator code
+    if grep -q "AUTH_FAILED,CRV1:" <<<"${logs}"; then
+        echo CRV1
+        exit 1
     fi
     if grep -qE "AUTH_FAILED|Exiting due to fatal error" <<<"${logs}" || ! podman container exists rw-client \
         || [ "$(podman inspect -f '{{.State.Running}}' rw-client)" != "true" ]; then
