@@ -32,6 +32,8 @@ HOSTS = "ovpn/hosts"
 DNSMASQ_CONF = "ovpn/dnsmasq.conf"
 # Read by the server at each new session: a change needs no restart
 DISABLED = "ovpn/disabled.json"
+# Left by a restored or moved copy that waits for the original to leave the node
+WAITING = "waiting-for-original"
 LDAP_PASSWORD = "secrets/ldap-bind-password"
 TOTP_FILE = "secrets/totp.json"
 ACCOUNTS = "accounts.json"
@@ -82,10 +84,7 @@ def save_json(path, data, private=False):
     if private:
         write_private(path, text)
     else:
-        tmp = path + ".tmp"
-        with open(tmp, "w") as f:
-            f.write(text)
-        os.replace(tmp, path)
+        write_text(path, text)
 
 
 def now():
@@ -144,8 +143,43 @@ def firewall_ports(expose_samba):
     return ports
 
 
+def write_text(path, text):
+    # The containers read these files at any time: never let them see a half written one
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def vpn_domains(hosts, vpn_host):
+    """Domains the clients send to the VPN resolver, for the given host names.
+
+    The parent domain of the node groups the apps under one domain, so a new app needs no
+    new push. A domain that would also catch the VPN host is never pushed: a reconnect must
+    resolve the server outside the tunnel. Host names outside the node domain go one by one,
+    which also keeps a public suffix like co.uk out of the list.
+    """
+    node = socket.getfqdn().lower()
+    base = node.split(".", 1)[1] if node.count(".") >= 2 else ""
+
+    def catches_vpn_host(domain):
+        return vpn_host == domain or vpn_host.endswith("." + domain)
+
+    domains = set()
+    for host in hosts:
+        if base and host.endswith("." + base) and not catches_vpn_host(base):
+            domains.add(base)
+        elif catches_vpn_host(host):
+            log(agent.SD_WARNING + f"{host} is not resolved through the VPN: it would catch the VPN host {vpn_host}")
+        else:
+            domains.add(host)
+    return domains
+
+
 def write_runtime(rdb=None):
     """Write the files read by the server container: server.env, auth.json, the resolver files and the LDAP password."""
+    # disabled.json comes from accounts.json: read and write them under the same lock as the actions
+    lock_state()
     rdb = rdb or agent.redis_connect(use_replica=True)
     conf = settings()
     node_id = os.environ["NODE_ID"]
@@ -159,14 +193,7 @@ def write_runtime(rdb=None):
     )
 
     push_routes = []
-    # Parent domains, not host names: a new app of the same domain needs no new push to the clients.
-    # When the VPN host shares that domain, push the host names instead: a reconnect must
-    # resolve the VPN host outside the tunnel.
-    domains = set()
-    for host in hosts:
-        parent = host.split(".", 1)[1] if host.count(".") >= 2 else host
-        vpn_inside = vpn_host == parent or vpn_host.endswith("." + parent)
-        domains.add(host if vpn_inside else parent)
+    domains = vpn_domains(hosts, vpn_host)
     if samba:
         push_routes.append(f"{samba[2]}/255.255.255.255")
         domains.add(samba[1])
@@ -191,16 +218,13 @@ def write_runtime(rdb=None):
         "DNS_DOMAINS": " ".join(domains),
     }
     new_server_env = "".join(f"{k}={shlex.quote(v)}\n" for k, v in server_env.items())
-    with open(SERVER_ENV, "w") as f:
-        f.write(new_server_env)
-
-    with open(HOSTS, "w") as f:
-        f.write("".join(f"{server_ip} {host}\n" for host in hosts))
-    with open(DNSMASQ_CONF, "w") as f:
-        f.write("domain-needed\n")
-        if samba:
-            # The realm and its SRV records come from the samba DNS
-            f.write(f"server=/{samba[1]}/{samba[2]}\n")
+    write_text(SERVER_ENV, new_server_env)
+    write_text(HOSTS, "".join(f"{server_ip} {host}\n" for host in hosts))
+    dnsmasq = "domain-needed\n"
+    if samba:
+        # The realm and its SRV records come from the samba DNS
+        dnsmasq += f"server=/{samba[1]}/{samba[2]}\n"
+    write_text(DNSMASQ_CONF, dnsmasq)
 
     auth = {"totp_required": is_true(conf["OVPN_TOTP_REQUIRED"])}
     domain = conf["OVPN_USER_DOMAIN"]
@@ -290,10 +314,11 @@ def save_totp(data):
     save_json(TOTP_FILE, data, private=True)
 
 
-def totp_ok(secret, code):
-    # The server image owns the TOTP check, so enrollment and login agree on the same rules
+def totp_ok(secret, code, name=None):
+    # The server image owns the TOTP check, so enrollment and login agree on the same rules.
+    # With a name the code is spent: the code typed to confirm cannot open a session.
     proc = podman_exec("ovpn-auth", "totp-check", check=False,
-                       input=json.dumps({"secret": secret, "code": code}))
+                       input=json.dumps({"secret": secret, "code": code, "name": name}))
     return proc.returncode == 0
 
 
