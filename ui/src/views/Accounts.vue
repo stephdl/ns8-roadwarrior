@@ -28,6 +28,14 @@
               @click="listAccounts"
               >{{ $t("accounts.refresh") }}</NsButton
             >
+            <NsButton
+              kind="tertiary"
+              :icon="Download20"
+              :loading="loading.downloadAllHistory"
+              :disabled="loading.downloadAllHistory || !configured"
+              @click="downloadAllHistory"
+              >{{ $t("accounts.download_all_history") }}</NsButton
+            >
           </div>
           <NsDataTable
             :allRows="accounts"
@@ -528,6 +536,7 @@ export default {
         resetTotp: false,
         removeAccount: false,
         getLoginHistory: false,
+        downloadAllHistory: false,
       },
       error: {
         listAccounts: "",
@@ -746,15 +755,45 @@ export default {
         },
       });
     },
-    downloadHistory() {
-      const blob = new Blob([JSON.stringify(this.filteredHistory, null, 2)], {
+    saveJson(data, filename) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
       });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `${this.currentAccount}-login-history.json`;
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
+    },
+    downloadHistory() {
+      this.saveJson(
+        this.filteredHistory,
+        `${this.currentAccount}-login-history.json`
+      );
+    },
+    downloadAllHistory() {
+      this.error.action = "";
+      this.loading.downloadAllHistory = true;
+      this.runModuleTask({
+        action: "get-login-history",
+        data: {},
+        isNotificationHidden: true,
+        completed: (result) => {
+          this.loading.downloadAllHistory = false;
+          this.saveJson(
+            result.events,
+            `${this.instanceName}-login-history.json`
+          );
+        },
+        aborted: (message) => {
+          this.loading.downloadAllHistory = false;
+          this.actionFailed("get-login-history")(message);
+        },
+        failed: (message) => {
+          this.loading.downloadAllHistory = false;
+          this.actionFailed("get-login-history")(message);
+        },
+      });
     },
     actionFailed(action) {
       return (message) => {

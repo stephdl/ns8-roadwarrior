@@ -78,6 +78,7 @@
     "add_account": "Add account",
     "add": "Add",
     "refresh": "Refresh",
+    "download_all_history": "Download login history",
     "search": "Search accounts",
     "not_configured_description": "Configure the VPN server first.",
     "no_accounts": "No accounts",

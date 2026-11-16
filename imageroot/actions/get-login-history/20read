@@ -10,9 +10,10 @@ import sys
 import ovpn_module as om
 
 request = json.load(sys.stdin)
+name = request.get("name", "")
 events = []
 if om.server_running():
-    proc = om.podman_exec("ovpn-history", "list", request["name"], check=False)
+    proc = om.podman_exec("ovpn-history", "list", *([name] if name else []), check=False)
     if proc.returncode == 0:
         events = json.loads(proc.stdout)
-json.dump({"name": request["name"], "events": events}, fp=sys.stdout)
+json.dump({"name": name, "events": events}, fp=sys.stdout)
