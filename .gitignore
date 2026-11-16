@@ -111,3 +111,6 @@ __pycache__/
 
 # Yarn local state
 ui/.yarn/
+
+# Robot local runs
+playwright-log.txt
