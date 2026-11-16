@@ -22,5 +22,10 @@ if is_disabled(name):
     subprocess.run(["/usr/local/bin/ovpn-history", "refused", name, "account_disabled"], check=False)
     sys.exit(1)
 
-# OpenVPN runs this hook without PATH
-sys.exit(subprocess.run(["/usr/local/bin/ovpn-history", "connect"], check=False).returncode)
+# OpenVPN runs this hook without PATH. A failed history write is logged, it never refuses the session.
+try:
+    if subprocess.run(["/usr/local/bin/ovpn-history", "connect"], check=False).returncode != 0:
+        print(f"ovpn-connect: cannot record the login of {name!r}", file=sys.stderr, flush=True)
+except OSError as exc:
+    print(f"ovpn-connect: cannot record the login of {name!r}: {exc}", file=sys.stderr, flush=True)
+sys.exit(0)
