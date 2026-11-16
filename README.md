@@ -64,6 +64,8 @@ Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In pa
 
 `download-client-config` returns the file name `NAME@HOST.ovpn` and the profile. The profile holds the CA, the client certificate and key, and the tls-crypt key. Routes and DNS settings are not in the profile: the server pushes them.
 
+With `"format": "zip"` it returns a zip archive instead, base64 encoded. The archive holds the same profile, the keys as separate files (`ca.crt`, `NAME.crt`, `NAME.key`, `tls-crypt.key`) and a second profile that points to those files. Use it when a client asks for each file apart, like the GNOME network settings.
+
 In password mode the profile asks for the user name and the password. The authenticator code is not in the profile: the server asks it when the account has one, so the profile keeps working when an authenticator is set up later.
 
 In certificate mode the profile alone gives access. Send it through a safe channel.
@@ -84,8 +86,6 @@ The server needs OpenVPN 2.6 features for split DNS. Older clients still connect
 In password mode the client asks for the user name and the domain password. When the account has an authenticator, the server checks the password, then answers with an OpenVPN dynamic challenge (CRV1). The client opens a second prompt "Authenticator code" and connects again with the 6 digits. The code is never appended to the password. A pending challenge lasts 3 minutes and works once: a wrong code sends the user back to the password.
 
 NetworkManager, OpenVPN Connect, OpenVPN GUI and Tunnelblick handle the dynamic challenge. The `openvpn` command line client handles it with `auth-retry interact`, which the profile sets.
-
-Profiles made before this change ask for the code up front with `static-challenge`. The server still accepts them.
 
 The module was tested with the `openvpn` 2.6 command line client and its management interface, which is the path the graphical clients use.
 

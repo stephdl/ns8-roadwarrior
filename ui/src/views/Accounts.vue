@@ -144,6 +144,15 @@
                         :label="$t('accounts.download_profile')"
                       />
                     </cv-overflow-menu-item>
+                    <cv-overflow-menu-item
+                      :disabled="row.certificate !== 'valid'"
+                      @click="downloadProfile(row, 'zip')"
+                    >
+                      <NsMenuItem
+                        :icon="Download20"
+                        :label="$t('accounts.download_archive')"
+                      />
+                    </cv-overflow-menu-item>
                     <cv-overflow-menu-item @click="showHistoryModal(row)">
                       <NsMenuItem
                         :icon="RecentlyViewed20"
@@ -818,22 +827,25 @@ export default {
         this.error.action = message;
       };
     },
-    async downloadProfile(row) {
+    async downloadProfile(row, format = "ovpn") {
       this.error.action = "";
       const seal = await createSealKey();
       this.runModuleTask({
         action: "download-client-config",
-        data: { name: row.name, public_key: seal.publicKey },
+        data: { name: row.name, format, public_key: seal.publicKey },
         // The profile holds the private key of the client
         isNotificationHidden: true,
         completed: async (sealed) => {
           const result = await openSealed(sealed, seal.privateKey);
-          this.saveBlob(
-            new Blob([result.profile], {
-              type: "application/x-openvpn-profile",
-            }),
-            result.filename
-          );
+          const blob = result.archive
+            ? new Blob(
+                [Uint8Array.from(atob(result.archive), (c) => c.charCodeAt(0))],
+                { type: "application/zip" }
+              )
+            : new Blob([result.profile], {
+                type: "application/x-openvpn-profile",
+              });
+          this.saveBlob(blob, result.filename);
         },
         validationFailed: (errors) => {
           this.actionFailed("download-client-config")(
@@ -972,6 +984,11 @@ export default {
         completed: () => {
           this.loading.removeAccount = false;
           this.isShownRemoveModal = false;
+          this.listAccounts();
+        },
+        validationFailed: (errors) => {
+          this.error.removeAccount = this.$t("accounts." + errors[0].error);
+          this.loading.removeAccount = false;
           this.listAccounts();
         },
         aborted: (message) => {

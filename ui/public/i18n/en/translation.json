@@ -120,6 +120,7 @@
     "connected": "Connected",
     "not_connected": "Not connected",
     "download_profile": "Download profile",
+    "download_archive": "Download archive (profile and keys apart)",
     "enroll_totp": "Set up authenticator",
     "replace_totp": "Replace authenticator",
     "reset_totp": "Reset authenticator",

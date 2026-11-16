@@ -6,6 +6,10 @@
     "examples": [
         {
             "name": "alice"
+        },
+        {
+            "name": "alice",
+            "format": "zip"
         }
     ],
     "type": "object",
@@ -21,6 +25,15 @@
             "type": "string",
             "maxLength": 2048,
             "description": "Base64 SPKI RSA-OAEP key of the browser: the output is encrypted for it"
+        },
+        "format": {
+            "type": "string",
+            "enum": [
+                "ovpn",
+                "zip"
+            ],
+            "default": "ovpn",
+            "description": "ovpn: one profile with the keys inside. zip: the same profile plus the keys as separate files, for clients that need them apart"
         }
     }
 }
