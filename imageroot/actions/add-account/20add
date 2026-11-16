@@ -13,7 +13,8 @@ request = json.load(sys.stdin)
 name = request["name"]
 om.require_server()
 accounts = om.load_accounts()
-if name in accounts:
+# Logins compare names without case: "Alice" and "alice" would be the same user
+if name.lower() in {account.lower() for account in accounts}:
     om.fail_validation("name", name, "account_exists")
 if name == "server":
     om.fail_validation("name", name, "name_reserved")

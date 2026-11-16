@@ -45,8 +45,9 @@ init)
     ;;
 add)
     name=${2:?name}
-    # A crash between two steps can leave files of a name without a valid certificate
-    if ! grep -q "^V.*/CN=${name}\$" "${pki}/index.txt"; then
+    # A crash between two steps can leave files of a name without a valid certificate.
+    # Compare the name as a plain string: a dot in it must not match another name.
+    if ! awk -F'\t' -v cn="/CN=${name}" '$1 == "V" && $6 == cn {found=1} END {exit !found}' "${pki}/index.txt"; then
         rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
     fi
     "${easyrsa}" build-client-full "${name}" nopass >&2

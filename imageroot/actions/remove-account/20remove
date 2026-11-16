@@ -17,7 +17,8 @@ om.require_server()
 accounts = om.load_accounts()
 if name not in accounts:
     om.fail_validation("name", name, "account_not_found")
-if om.pki_list().get(name, {}).get("status") == "valid":
+# Expired certificates are revoked too: revoke also frees the name for a new account
+if om.pki_list().get(name, {}).get("status") in ("valid", "expired"):
     om.podman_exec("ovpn-pki", "revoke", name)
 om.podman_exec("ovpn-mgmt", "kill", name, check=False)
 totp = om.load_totp()
