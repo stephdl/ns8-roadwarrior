@@ -755,15 +755,18 @@ export default {
         },
       });
     },
-    saveJson(data, filename) {
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
+    saveBlob(blob, filename) {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
+    },
+    saveJson(data, filename) {
+      this.saveBlob(
+        new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+        filename
+      );
     },
     downloadHistory() {
       this.saveJson(
@@ -811,14 +814,12 @@ export default {
         isNotificationHidden: true,
         completed: async (sealed) => {
           const result = await openSealed(sealed, seal.privateKey);
-          const blob = new Blob([result.profile], {
-            type: "application/x-openvpn-profile",
-          });
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = result.filename;
-          link.click();
-          URL.revokeObjectURL(link.href);
+          this.saveBlob(
+            new Blob([result.profile], {
+              type: "application/x-openvpn-profile",
+            }),
+            result.filename
+          );
         },
         validationFailed: (errors) => {
           this.actionFailed("download-client-config")(
