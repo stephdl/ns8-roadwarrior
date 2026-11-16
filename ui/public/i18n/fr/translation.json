@@ -104,7 +104,6 @@
     "reason_code_reused": "Code de l'authentificateur déjà utilisé",
     "reason_totp_not_enrolled": "Aucun authentificateur configuré",
     "reason_certificate_mismatch": "Le nom d'utilisateur ne correspond pas au certificat",
-    "reason_malformed_response": "Réponse de connexion mal formée",
     "reason_error": "Erreur du serveur",
     "certificate_valid": "Valide",
     "certificate_revoked": "Révoqué",

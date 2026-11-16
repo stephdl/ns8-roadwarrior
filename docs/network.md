@@ -57,6 +57,7 @@ sequenceDiagram
     C->>O: user name, password
     O->>A: check in a child process
     A->>A: user name must equal the certificate name
+    A->>A: refuse a disabled account
     A->>L: bind with the user password
     L-->>A: ok or refused
     alt account with an authenticator
@@ -69,7 +70,7 @@ sequenceDiagram
     A->>H: refused, with the reason
     O->>H: login, with addresses
     O-->>C: VPN address, route, DNS settings
-    Note over C,O: Later renegotiations use a session token valid for 12 hours
+    Note over C,O: Later renegotiations use a session token valid for 12 hours, until an admin disconnects the account
 ```
 
 In certificate mode the password and code steps are skipped: the certificate alone gives access.
@@ -146,7 +147,10 @@ The server pushes the resolver three ways, so each client finds one it knows:
 
 - `dhcp-option DNS 10.8.0.1`, for every client;
 - `dhcp-option DOMAIN <domain>`, so NetworkManager and Windows send those domains to the VPN resolver;
-- `dns server 0 address` and `resolve-domains`, the split DNS of OpenVPN 2.6 clients.
+- `dns server 0 address` and `resolve-domains`, the split DNS of OpenVPN 2.6 clients;
+- `dns search-domains`: an OpenVPN 2.7 client drops the `dhcp-option DOMAIN` lines when it gets `dns` options, and rebuilds them from this list for NetworkManager.
+
+The domains are the parent domains of the route names and of the node FQDN, plus the Samba realm when the file server is open. When the VPN host shares one of these domains, the full host names are pushed instead of the domain.
 
 The host of the VPN server is left out on purpose. A client that keeps the VPN resolver during a reconnect would otherwise look for the server inside the tunnel.
 

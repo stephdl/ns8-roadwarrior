@@ -104,7 +104,6 @@
     "reason_code_reused": "Autentifikatzailearen kodea erabilita dago jada",
     "reason_totp_not_enrolled": "Ez dago autentifikatzailerik konfiguratuta",
     "reason_certificate_mismatch": "Erabiltzaile-izena ez dator bat ziurtagiriarekin",
-    "reason_malformed_response": "Saio-hasiera gaizki osatua",
     "reason_error": "Zerbitzariaren errorea",
     "certificate_valid": "Baliozkoa",
     "certificate_revoked": "Baliogabetua",

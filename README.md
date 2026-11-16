@@ -58,18 +58,20 @@ Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In pa
 
 `remove-account` revokes the certificate and closes the session.
 
+`kill-session` closes the open session and tells the client to stop instead of reconnecting. The session token of the account stops working too, so the user must type the password and the authenticator code again. It returns `no_session` if the account is not connected.
+
     api-cli run disable-account --agent module/roadwarrior1 --data '{"name": "john"}'
     api-cli run enable-account --agent module/roadwarrior1 --data '{"name": "john"}'
 
+`disable-account` closes the session and refuses every new one, in every authentication mode. The certificate stays valid, so `enable-account` gives the access back with the same profile. A disabled account cannot get, confirm or reset an authenticator, nor renew its certificate.
+
     api-cli run renew-account --agent module/roadwarrior1 --data '{"name": "john"}'
 
-`renew-account` revokes the certificate of the account and issues a new one. The authenticator and the login history stay. The profile already sent stops working, so send the new one. Use it when a laptop is lost but the account must stay.
+`renew-account` revokes the certificate of an enabled account, issues a new one and closes the session. The authenticator and the login history stay. The profile already sent stops working, so send the new one. Use it when a laptop is lost but the account must stay.
 
-Certificates last 10 years and the CA 20 years. The status page warns 90 days before the CA expires.
+Certificates and the revocation list last 10 years, the CA 20 years. The status page warns 90 days before the CA expires.
 
-`disable-account` closes the session and refuses every new one, in every authentication mode. The certificate stays valid, so `enable-account` gives the access back with the same profile. `kill-session` returns `no_session` if the account is not connected.
-
-`list-accounts` returns the certificate status, the authenticator status, the session state and the last login time of each account.
+`list-accounts` returns the certificate status, the authenticator status, the session state, the disabled flag and the last login time of each account. The search of the accounts page matches the names and the states shown in the row, in the language of the page.
 
 ## Profile
 
@@ -121,10 +123,11 @@ After a full login, the server gives the client a session token valid for 12 hou
 ## Login history
 
     api-cli run get-login-history --agent module/roadwarrior1 --data '{"name": "john"}'
+    api-cli run get-login-history --agent module/roadwarrior1 --data '{}'
 
-It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `challenge_expired`, `code_reused`, `account_disabled`, `totp_not_enrolled`, `certificate_mismatch`, `malformed_response` or `error`.
+Without a name it returns the events of every account. It returns the logins, the logouts and the refused attempts, newest first. A logout holds the session duration and the traffic. A refusal holds a reason: `wrong_password`, `wrong_code`, `challenge_expired`, `code_reused`, `account_disabled`, `totp_not_enrolled`, `certificate_mismatch` or `error`.
 
-The history keeps the last 15000 to 20000 events of the instance. The UI shows it per account and can download it as JSON.
+The history keeps the last 15000 events of the instance, trimmed when the file passes 4 MB. The accounts page shows it per account with a date filter, and downloads it as JSON, per account or for every account.
 
 ## DNS
 
@@ -144,7 +147,11 @@ The backup holds the settings, the PKI with the revocation list, the accounts, t
 
 The CA is the same, so the profiles already sent stay valid. They point to the old host until the host name points to the new node.
 
-On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. Remove the original, then save the settings of the copy again.
+On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. When the original is removed, the copy starts on its own: a restore or a move with "replace" ends that way. After a plain clone, remove the original or change the settings of the copy.
+
+## User interface
+
+The pages are Status, Accounts, Sessions, Settings and About. The UI ships in English, German, Spanish, Basque, French, Italian, Portuguese and Brazilian Portuguese.
 
 ## Uninstall
 
