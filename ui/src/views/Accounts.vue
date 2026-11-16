@@ -114,11 +114,13 @@
                 </cv-data-table-cell>
                 <cv-data-table-cell>
                   <NsTag
-                    v-if="row.connected"
-                    :label="$t('accounts.connected')"
-                    kind="blue"
+                    :label="
+                      row.connected
+                        ? $t('accounts.connected')
+                        : $t('accounts.not_connected')
+                    "
+                    :kind="row.connected ? 'blue' : 'gray'"
                   />
-                  <span v-else>-</span>
                 </cv-data-table-cell>
                 <cv-data-table-cell>{{
                   formatTimestamp(row.last_login)
@@ -353,7 +355,9 @@
     <NsModal
       size="large"
       :visible="isShownHistoryModal"
-      :primary-button-disabled="loading.getLoginHistory || !history.length"
+      :primary-button-disabled="
+        loading.getLoginHistory || !filteredHistory.length
+      "
       @modal-hidden="isShownHistoryModal = false"
       @primary-click="downloadHistory"
     >
@@ -368,8 +372,24 @@
           :description="error.getLoginHistory"
           :showCloseButton="false"
         />
+        <div class="date-filter">
+          <cv-date-picker
+            kind="single"
+            :cal-options="calOptions"
+            :date-label="$t('accounts.history_from')"
+            v-model="historyFrom"
+            class="interval-date"
+          />
+          <cv-date-picker
+            kind="single"
+            :cal-options="calOptions"
+            :date-label="$t('accounts.history_to')"
+            v-model="historyTo"
+            class="interval-date"
+          />
+        </div>
         <NsDataTable
-          :allRows="history"
+          :allRows="filteredHistory"
           :columns="i18nHistoryColumns"
           :rawColumns="historyColumns"
           :sortable="false"
@@ -476,6 +496,11 @@ export default {
       history: [],
       historyPage: [],
       historyColumns: ["time", "event", "address", "detail"],
+      historyFrom: "",
+      historyTo: "",
+      calOptions: {
+        dateFormat: "Y-m-d",
+      },
       isShownHistoryModal: false,
       configured: false,
       authMode: "certificate_password",
@@ -529,6 +554,18 @@ export default {
         columns.push("totp");
       }
       return columns.concat(["session", "last_login"]);
+    },
+    filteredHistory() {
+      // Local dates: the admin picks days of the browser time zone
+      const from = this.historyFrom
+        ? new Date(this.historyFrom + "T00:00:00").getTime() / 1000
+        : -Infinity;
+      const to = this.historyTo
+        ? new Date(this.historyTo + "T23:59:59").getTime() / 1000
+        : Infinity;
+      return this.history.filter(
+        (event) => event.time >= from && event.time <= to
+      );
     },
     i18nHistoryColumns() {
       return this.historyColumns.map((column) =>
@@ -686,6 +723,8 @@ export default {
     showHistoryModal(row) {
       this.currentAccount = row.name;
       this.history = [];
+      this.historyFrom = "";
+      this.historyTo = "";
       this.error.getLoginHistory = "";
       this.isShownHistoryModal = true;
       this.loading.getLoginHistory = true;
@@ -708,7 +747,7 @@ export default {
       });
     },
     downloadHistory() {
-      const blob = new Blob([JSON.stringify(this.history, null, 2)], {
+      const blob = new Blob([JSON.stringify(this.filteredHistory, null, 2)], {
         type: "application/json",
       });
       const link = document.createElement("a");
@@ -907,6 +946,13 @@ export default {
 }
 
 .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-05;
+  margin-bottom: $spacing-05;
+}
+
+.date-filter {
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-05;
