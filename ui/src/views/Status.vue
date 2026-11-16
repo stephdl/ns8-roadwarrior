@@ -91,8 +91,8 @@
                   <NsButton
                     kind="ghost"
                     :icon="ArrowRight20"
-                    @click="goToAppPage(instanceName, 'accounts')"
-                    >{{ $t("status.go_to_accounts") }}</NsButton
+                    @click="goToAppPage(instanceName, 'sessions')"
+                    >{{ $t("status.go_to_sessions") }}</NsButton
                   >
                 </div>
               </div>
@@ -148,72 +148,6 @@
         </div>
       </cv-column>
     </cv-row>
-    <!-- sessions -->
-    <template v-if="config.configured">
-      <cv-row>
-        <cv-column class="page-subtitle">
-          <h4>{{ $t("status.sessions") }}</h4>
-        </cv-column>
-      </cv-row>
-      <cv-row>
-        <cv-column>
-          <cv-tile light>
-            <NsDataTable
-              :allRows="vpn.sessions"
-              :columns="i18nSessionColumns"
-              :rawColumns="sessionColumns"
-              :sortable="true"
-              :pageSizes="[10, 25, 50, 100]"
-              :overflow-menu="false"
-              isSearchable
-              :searchPlaceholder="$t('status.search_sessions')"
-              :searchClearLabel="core.$t('common.clear_search')"
-              :noSearchResultsLabel="core.$t('common.no_search_results')"
-              :noSearchResultsDescription="
-                core.$t('common.no_search_results_description')
-              "
-              :isLoading="loading.getVpnStatus"
-              :skeletonRows="3"
-              :itemsPerPageLabel="core.$t('pagination.items_per_page')"
-              :rangeOfTotalItemsLabel="
-                core.$t('pagination.range_of_total_items')
-              "
-              :ofTotalPagesLabel="core.$t('pagination.of_total_pages')"
-              :backwardText="core.$t('pagination.previous_page')"
-              :forwardText="core.$t('pagination.next_page')"
-              :pageNumberLabel="core.$t('pagination.page_number')"
-              @updatePage="sessionsPage = $event"
-            >
-              <template slot="empty-state">
-                <NsEmptyState :title="$t('status.no_sessions')" />
-              </template>
-              <template slot="data">
-                <cv-data-table-row
-                  v-for="(row, rowIndex) in sessionsPage"
-                  :key="`${rowIndex}`"
-                  :value="`${rowIndex}`"
-                >
-                  <cv-data-table-cell class="break-word">{{
-                    row.name
-                  }}</cv-data-table-cell>
-                  <cv-data-table-cell>{{ row.vpn_address }}</cv-data-table-cell>
-                  <cv-data-table-cell>{{
-                    row.real_address
-                  }}</cv-data-table-cell>
-                  <cv-data-table-cell>{{
-                    formatTimestamp(row.connected_since)
-                  }}</cv-data-table-cell>
-                  <cv-data-table-cell
-                    >{{ byteFormat(row.bytes_received) }} /
-                    {{ byteFormat(row.bytes_sent) }}</cv-data-table-cell
-                  >
-                </cv-data-table-row>
-              </template>
-            </NsDataTable>
-          </cv-tile>
-        </cv-column>
-      </cv-row>
-    </template>
     <!-- services -->
     <cv-row>
       <cv-column class="page-subtitle">
@@ -408,16 +342,8 @@ export default {
       config: { configured: false, host: "", port: 0 },
       vpn: { running: false, sessions: [], ca_expiry: "" },
       status: { instance: "", services: [], images: [], volumes: [] },
-      sessionsPage: [],
       // Hide the server state until the first answer: a default "stopped" would mislead
       vpnLoaded: false,
-      sessionColumns: [
-        "name",
-        "vpn_address",
-        "real_address",
-        "since",
-        "traffic",
-      ],
       isShownRestartModuleModal: false,
       loading: {
         getStatus: false,
@@ -453,11 +379,6 @@ export default {
         return false;
       }
       return date - Date.now() < CA_WARNING_DAYS * 24 * 3600 * 1000;
-    },
-    i18nSessionColumns() {
-      return this.sessionColumns.map((column) =>
-        this.$t("status.column_" + column)
-      );
     },
     failedServices() {
       // A stopped server is not "failed" for systemd, but it must run once configured

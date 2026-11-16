@@ -7,6 +7,7 @@ import VueRouter from "vue-router";
 import Status from "../views/Status.vue";
 import Accounts from "../views/Accounts.vue";
 import Settings from "../views/Settings.vue";
+import Sessions from "../views/Sessions.vue";
 
 Vue.use(VueRouter);
 
@@ -21,6 +22,11 @@ const routes = [
     path: "/accounts",
     name: "Accounts",
     component: Accounts,
+  },
+  {
+    path: "/sessions",
+    name: "Sessions",
+    component: Sessions,
   },
   {
     path: "/settings",

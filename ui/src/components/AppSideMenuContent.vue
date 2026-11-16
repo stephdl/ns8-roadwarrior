@@ -29,6 +29,13 @@
         <span>{{ $t("accounts.title") }}</span>
       </cv-side-nav-link>
       <cv-side-nav-link
+        @click="goToAppPage(instanceName, 'sessions')"
+        :class="{ 'current-page': isLinkActive('sessions') }"
+      >
+        <template v-slot:nav-icon><Connect20 /></template>
+        <span>{{ $t("sessions.title") }}</span>
+      </cv-side-nav-link>
+      <cv-side-nav-link
         @click="goToAppPage(instanceName, 'settings')"
         :class="{ 'current-page': isLinkActive('settings') }"
       >
@@ -51,6 +58,7 @@ import Settings20 from "@carbon/icons-vue/es/settings/20";
 import Information20 from "@carbon/icons-vue/es/information/20";
 import Activity20 from "@carbon/icons-vue/es/activity/20";
 import UserMultiple20 from "@carbon/icons-vue/es/user--multiple/20";
+import Connect20 from "@carbon/icons-vue/es/connect/20";
 import { mapState } from "vuex";
 import { QueryParamService, UtilService } from "@nethserver/ns8-ui-lib";
 
@@ -61,6 +69,7 @@ export default {
     Information20,
     Activity20,
     UserMultiple20,
+    Connect20,
   },
   mixins: [QueryParamService, UtilService],
   data() {
