@@ -1,0 +1,773 @@
+<!--
+  Copyright (C) 2026 Nethesis S.r.l.
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<template>
+  <cv-grid fullWidth>
+    <cv-row>
+      <cv-column class="page-title">
+        <h2>{{ $t("accounts.title") }}</h2>
+      </cv-column>
+    </cv-row>
+    <cv-row>
+      <cv-column>
+        <cv-tile light>
+          <div class="toolbar">
+            <NsButton
+              kind="primary"
+              :icon="Add20"
+              :disabled="loading.listAccounts || !configured"
+              @click="showAddModal"
+              >{{ $t("accounts.add_account") }}</NsButton
+            >
+            <NsButton
+              kind="secondary"
+              :icon="Restart20"
+              :loading="loading.listAccounts"
+              :disabled="loading.listAccounts || !configured"
+              @click="listAccounts"
+              >{{ $t("accounts.refresh") }}</NsButton
+            >
+          </div>
+          <NsDataTable
+            :allRows="accounts"
+            :columns="i18nTableColumns"
+            :rawColumns="tableColumns"
+            :sortable="true"
+            :pageSizes="[10, 25, 50, 100]"
+            :overflow-menu="true"
+            isSearchable
+            :searchPlaceholder="$t('accounts.search')"
+            :searchClearLabel="core.$t('common.clear_search')"
+            :noSearchResultsLabel="core.$t('common.no_search_results')"
+            :noSearchResultsDescription="
+              core.$t('common.no_search_results_description')
+            "
+            :isLoading="loading.getConfiguration || loading.listAccounts"
+            :skeletonRows="3"
+            :isErrorShown="!!error.listAccounts"
+            :errorTitle="$t('action.list-accounts')"
+            :errorDescription="error.listAccounts"
+            :itemsPerPageLabel="core.$t('pagination.items_per_page')"
+            :rangeOfTotalItemsLabel="core.$t('pagination.range_of_total_items')"
+            :ofTotalPagesLabel="core.$t('pagination.of_total_pages')"
+            :backwardText="core.$t('pagination.previous_page')"
+            :forwardText="core.$t('pagination.next_page')"
+            :pageNumberLabel="core.$t('pagination.page_number')"
+            @updatePage="tablePage = $event"
+          >
+            <template slot="empty-state">
+              <NsEmptyState
+                v-if="!configured"
+                :title="$t('status.not_configured')"
+              >
+                <template #description>
+                  <div class="mg-bottom">
+                    {{ $t("accounts.not_configured_description") }}
+                  </div>
+                  <NsButton
+                    kind="ghost"
+                    :icon="ArrowRight20"
+                    @click="goToAppPage(instanceName, 'settings')"
+                    >{{ $t("status.configure") }}</NsButton
+                  >
+                </template>
+              </NsEmptyState>
+              <NsEmptyState v-else :title="$t('accounts.no_accounts')">
+                <template #description>
+                  <div class="mg-bottom">
+                    {{ $t("accounts.no_accounts_description") }}
+                  </div>
+                  <NsButton
+                    kind="primary"
+                    :icon="Add20"
+                    @click="showAddModal"
+                    >{{ $t("accounts.add_account") }}</NsButton
+                  >
+                </template>
+              </NsEmptyState>
+            </template>
+            <template slot="data">
+              <cv-data-table-row
+                v-for="(row, rowIndex) in tablePage"
+                :key="`${rowIndex}`"
+                :value="`${rowIndex}`"
+              >
+                <cv-data-table-cell class="break-word">{{
+                  row.name
+                }}</cv-data-table-cell>
+                <cv-data-table-cell>
+                  <NsTag
+                    :label="$t('accounts.certificate_' + row.certificate)"
+                    :kind="row.certificate === 'valid' ? 'green' : 'red'"
+                  />
+                </cv-data-table-cell>
+                <cv-data-table-cell v-if="passwordMode">
+                  <NsTag
+                    :label="
+                      row.totp_enrolled
+                        ? $t('accounts.totp_enrolled')
+                        : $t('accounts.totp_not_enrolled')
+                    "
+                    :kind="row.totp_enrolled ? 'green' : 'gray'"
+                  />
+                </cv-data-table-cell>
+                <cv-data-table-cell>
+                  <NsTag
+                    v-if="row.connected"
+                    :label="$t('accounts.connected')"
+                    kind="blue"
+                  />
+                  <span v-else>-</span>
+                </cv-data-table-cell>
+                <cv-data-table-cell class="table-overflow-menu-cell">
+                  <cv-overflow-menu flip-menu class="table-overflow-menu">
+                    <cv-overflow-menu-item
+                      :disabled="row.certificate !== 'valid'"
+                      @click="downloadProfile(row)"
+                    >
+                      <NsMenuItem
+                        :icon="Download20"
+                        :label="$t('accounts.download_profile')"
+                      />
+                    </cv-overflow-menu-item>
+                    <cv-overflow-menu-item
+                      v-if="passwordMode"
+                      @click="startEnrollment(row)"
+                    >
+                      <NsMenuItem
+                        :icon="Password20"
+                        :label="
+                          row.totp_enrolled
+                            ? $t('accounts.replace_totp')
+                            : $t('accounts.enroll_totp')
+                        "
+                      />
+                    </cv-overflow-menu-item>
+                    <cv-overflow-menu-item
+                      v-if="passwordMode && row.totp_enrolled"
+                      @click="showResetTotpModal(row)"
+                    >
+                      <NsMenuItem
+                        :icon="Reset20"
+                        :label="$t('accounts.reset_totp')"
+                      />
+                    </cv-overflow-menu-item>
+                    <cv-overflow-menu-item
+                      v-if="row.connected"
+                      @click="killSession(row)"
+                    >
+                      <NsMenuItem
+                        :icon="Logout20"
+                        :label="$t('accounts.disconnect')"
+                      />
+                    </cv-overflow-menu-item>
+                    <NsMenuDivider />
+                    <cv-overflow-menu-item danger @click="showRemoveModal(row)">
+                      <NsMenuItem
+                        :icon="TrashCan20"
+                        :label="$t('accounts.remove')"
+                      />
+                    </cv-overflow-menu-item>
+                  </cv-overflow-menu>
+                </cv-data-table-cell>
+              </cv-data-table-row>
+            </template>
+          </NsDataTable>
+          <NsInlineNotification
+            v-if="error.action"
+            kind="error"
+            :title="error.actionTitle"
+            :description="error.action"
+            :showCloseButton="true"
+            @close="error.action = ''"
+          />
+        </cv-tile>
+      </cv-column>
+    </cv-row>
+    <!-- add -->
+    <NsModal
+      size="default"
+      :visible="isShownAddModal"
+      :primary-button-disabled="loading.addAccount || !newName"
+      :isLoading="loading.addAccount"
+      @modal-hidden="isShownAddModal = false"
+      @primary-click="addAccount"
+    >
+      <template slot="title">{{ $t("accounts.add_account") }}</template>
+      <template slot="content">
+        <cv-form @submit.prevent="addAccount" class="add-form">
+          <p class="mg-bottom">
+            {{
+              passwordMode
+                ? $t("accounts.add_description_password")
+                : $t("accounts.add_description_certificate")
+            }}
+          </p>
+          <NsComboBox
+            v-if="passwordMode"
+            v-model="newName"
+            :options="userOptions"
+            :autoFilter="true"
+            :autoHighlight="true"
+            :title="$t('accounts.user')"
+            :label="$t('accounts.choose_user')"
+            :invalid-message="$t(error.name)"
+            :disabled="loading.listDomainUsers || loading.addAccount"
+            ref="name"
+          />
+          <NsTextInput
+            v-else
+            v-model.trim="newName"
+            :label="$t('accounts.name')"
+            :helper-text="$t('accounts.name_helper')"
+            :invalid-message="$t(error.name)"
+            :disabled="loading.addAccount"
+            ref="name"
+          />
+          <NsInlineNotification
+            v-if="error.addAccount"
+            kind="error"
+            :title="$t('action.add-account')"
+            :description="error.addAccount"
+            :showCloseButton="false"
+          />
+        </cv-form>
+      </template>
+      <template slot="secondary-button">{{
+        core.$t("common.cancel")
+      }}</template>
+      <template slot="primary-button">{{ $t("accounts.add") }}</template>
+    </NsModal>
+    <!-- TOTP enrollment: the secret is shown once -->
+    <NsModal
+      size="default"
+      :visible="isShownTotpModal"
+      :primary-button-disabled="
+        !enrollment || loading.confirmTotp || !/^\d{6}$/.test(totpCode)
+      "
+      :isLoading="loading.confirmTotp"
+      @modal-hidden="hideTotpModal"
+      @primary-click="confirmTotp"
+    >
+      <template slot="title">{{
+        $t("accounts.enroll_totp_title", { name: totpAccount })
+      }}</template>
+      <template slot="content">
+        <cv-skeleton-text
+          v-if="loading.enrollTotp"
+          :paragraph="true"
+          :line-count="5"
+        />
+        <NsInlineNotification
+          v-if="error.enrollTotp"
+          kind="error"
+          :title="$t('action.enroll-totp')"
+          :description="error.enrollTotp"
+          :showCloseButton="false"
+        />
+        <template v-if="enrollment">
+          <NsInlineNotification
+            kind="warning"
+            :title="$t('accounts.totp_once_title')"
+            :description="$t('accounts.totp_once_description')"
+            :showCloseButton="false"
+          />
+          <p class="mg-bottom">{{ $t("accounts.totp_scan") }}</p>
+          <div class="qr mg-bottom">
+            <img :src="qrDataUrl" :alt="$t('accounts.qr_alt')" />
+          </div>
+          <p class="mg-bottom-sm">{{ $t("accounts.totp_manual") }}</p>
+          <NsCodeSnippet
+            :copyTooltip="core.$t('common.copy_to_clipboard')"
+            :copy-feedback="core.$t('common.copied_to_clipboard')"
+            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
+            :wrap-text="true"
+            hideExpandButton
+            class="mg-bottom"
+            >{{ enrollment.secret }}</NsCodeSnippet
+          >
+          <cv-form @submit.prevent="confirmTotp">
+            <NsTextInput
+              v-model.trim="totpCode"
+              :label="$t('accounts.totp_code')"
+              :helper-text="$t('accounts.totp_code_helper')"
+              :invalid-message="$t(error.code)"
+              :disabled="loading.confirmTotp"
+              maxlength="6"
+              ref="code"
+            />
+          </cv-form>
+          <NsInlineNotification
+            v-if="error.confirmTotp"
+            kind="error"
+            :title="$t('action.confirm-totp')"
+            :description="error.confirmTotp"
+            :showCloseButton="false"
+          />
+        </template>
+      </template>
+      <template slot="secondary-button">{{
+        core.$t("common.cancel")
+      }}</template>
+      <template slot="primary-button">{{ $t("accounts.activate") }}</template>
+    </NsModal>
+    <!-- reset TOTP -->
+    <NsModal
+      size="default"
+      kind="danger"
+      :visible="isShownResetTotpModal"
+      :isLoading="loading.resetTotp"
+      :primary-button-disabled="loading.resetTotp"
+      @modal-hidden="isShownResetTotpModal = false"
+      @primary-click="resetTotp"
+    >
+      <template slot="title">{{ $t("accounts.reset_totp") }}</template>
+      <template slot="content">
+        <p>
+          {{
+            $t(
+              totpRequired
+                ? "accounts.reset_totp_description_required"
+                : "accounts.reset_totp_description",
+              { name: currentAccount }
+            )
+          }}
+        </p>
+      </template>
+      <template slot="secondary-button">{{
+        core.$t("common.cancel")
+      }}</template>
+      <template slot="primary-button">{{ $t("accounts.reset") }}</template>
+    </NsModal>
+    <!-- remove -->
+    <NsDangerDeleteModal
+      :isShown="isShownRemoveModal"
+      :name="currentAccount"
+      :title="$t('accounts.remove_title')"
+      :warning="core.$t('common.please_read_carefully')"
+      :description="$t('accounts.remove_description', { name: currentAccount })"
+      :typeToConfirm="
+        core.$t('common.type_to_confirm', { name: currentAccount })
+      "
+      :isErrorShown="!!error.removeAccount"
+      :errorTitle="$t('action.remove-account')"
+      :errorDescription="error.removeAccount"
+      @hide="isShownRemoveModal = false"
+      @confirmDelete="removeAccount"
+    />
+  </cv-grid>
+</template>
+
+<script>
+import QRCode from "qrcode";
+import { mapState } from "vuex";
+import {
+  QueryParamService,
+  UtilService,
+  TaskService,
+  IconService,
+  PageTitleService,
+} from "@nethserver/ns8-ui-lib";
+import ModuleTask from "@/mixins/moduleTask";
+import Download20 from "@carbon/icons-vue/es/download/20";
+import Password20 from "@carbon/icons-vue/es/password/20";
+import Logout20 from "@carbon/icons-vue/es/logout/20";
+
+export default {
+  name: "Accounts",
+  mixins: [
+    TaskService,
+    IconService,
+    UtilService,
+    QueryParamService,
+    PageTitleService,
+    ModuleTask,
+  ],
+  pageTitle() {
+    return this.$t("accounts.title") + " - " + this.appName;
+  },
+  data() {
+    return {
+      q: {
+        page: "accounts",
+      },
+      urlCheckInterval: null,
+      Download20,
+      Password20,
+      Logout20,
+      configured: false,
+      authMode: "certificate_password",
+      totpRequired: false,
+      accounts: [],
+      tablePage: [],
+      domainUsers: [],
+      newName: "",
+      currentAccount: "",
+      totpAccount: "",
+      totpCode: "",
+      enrollment: null,
+      qrDataUrl: "",
+      isShownAddModal: false,
+      isShownTotpModal: false,
+      isShownResetTotpModal: false,
+      isShownRemoveModal: false,
+      loading: {
+        getConfiguration: false,
+        listAccounts: false,
+        listDomainUsers: false,
+        addAccount: false,
+        enrollTotp: false,
+        confirmTotp: false,
+        resetTotp: false,
+        removeAccount: false,
+      },
+      error: {
+        listAccounts: "",
+        addAccount: "",
+        enrollTotp: "",
+        confirmTotp: "",
+        removeAccount: "",
+        action: "",
+        actionTitle: "",
+        name: "",
+        code: "",
+      },
+    };
+  },
+  computed: {
+    ...mapState(["instanceName", "core", "appName"]),
+    passwordMode() {
+      return this.authMode === "certificate_password";
+    },
+    tableColumns() {
+      const columns = ["name", "certificate"];
+      if (this.passwordMode) {
+        columns.push("totp");
+      }
+      return columns.concat(["session"]);
+    },
+    i18nTableColumns() {
+      return this.tableColumns.map((column) =>
+        this.$t("accounts.column_" + column)
+      );
+    },
+    userOptions() {
+      const taken = new Set(this.accounts.map((account) => account.name));
+      return this.domainUsers
+        .filter((user) => !taken.has(user.user))
+        .map((user) => ({
+          name: user.user,
+          label: user.display_name
+            ? `${user.user} (${user.display_name})`
+            : user.user,
+          value: user.user,
+        }));
+    },
+  },
+  created() {
+    this.getConfiguration();
+  },
+  beforeRouteEnter(to, from, next) {
+    next((vm) => {
+      vm.watchQueryData(vm);
+      vm.urlCheckInterval = vm.initUrlBindingForApp(vm, vm.q.page);
+    });
+  },
+  beforeRouteLeave(to, from, next) {
+    clearInterval(this.urlCheckInterval);
+    next();
+  },
+  methods: {
+    getConfiguration() {
+      this.loading.getConfiguration = true;
+      this.runModuleTask({
+        action: "get-configuration",
+        completed: (config) => {
+          this.configured = config.configured;
+          this.authMode = config.auth_mode;
+          this.totpRequired = config.totp_required;
+          this.loading.getConfiguration = false;
+          if (this.configured) {
+            this.listAccounts();
+          }
+        },
+        aborted: (message) => {
+          this.error.listAccounts = message;
+          this.loading.getConfiguration = false;
+        },
+        failed: (message) => {
+          this.error.listAccounts = message;
+          this.loading.getConfiguration = false;
+        },
+      });
+    },
+    listAccounts() {
+      this.loading.listAccounts = true;
+      this.error.listAccounts = "";
+      this.runModuleTask({
+        action: "list-accounts",
+        completed: (accounts) => {
+          this.accounts = accounts;
+          this.loading.listAccounts = false;
+        },
+        aborted: (message) => {
+          this.error.listAccounts = message;
+          this.loading.listAccounts = false;
+        },
+        failed: (message) => {
+          this.error.listAccounts = message;
+          this.loading.listAccounts = false;
+        },
+      });
+    },
+    showAddModal() {
+      this.newName = "";
+      this.error.name = "";
+      this.error.addAccount = "";
+      this.isShownAddModal = true;
+      if (this.passwordMode) {
+        this.loading.listDomainUsers = true;
+        this.runModuleTask({
+          action: "list-domain-users",
+          completed: (users) => {
+            this.domainUsers = users;
+            this.loading.listDomainUsers = false;
+          },
+          aborted: (message) => {
+            this.error.addAccount = message;
+            this.loading.listDomainUsers = false;
+          },
+          failed: (message) => {
+            this.error.addAccount = message;
+            this.loading.listDomainUsers = false;
+          },
+        });
+      }
+    },
+    addAccount() {
+      if (!this.newName) {
+        return;
+      }
+      this.loading.addAccount = true;
+      this.error.name = "";
+      this.error.addAccount = "";
+      this.runModuleTask({
+        action: "add-account",
+        data: { name: this.newName },
+        completed: () => {
+          this.loading.addAccount = false;
+          this.isShownAddModal = false;
+          this.listAccounts();
+        },
+        validationFailed: (errors) => {
+          this.loading.addAccount = false;
+          this.error.name = "accounts." + errors[0].error;
+        },
+        aborted: (message) => {
+          this.error.addAccount = message;
+          this.loading.addAccount = false;
+        },
+        failed: (message) => {
+          this.error.addAccount = message;
+          this.loading.addAccount = false;
+        },
+      });
+    },
+    actionFailed(action) {
+      return (message) => {
+        this.error.actionTitle = this.$t("action." + action);
+        this.error.action = message;
+      };
+    },
+    downloadProfile(row) {
+      this.error.action = "";
+      this.runModuleTask({
+        action: "download-client-config",
+        data: { name: row.name },
+        // The profile holds the private key of the client
+        isNotificationHidden: true,
+        completed: (result) => {
+          const blob = new Blob([result.profile], {
+            type: "application/x-openvpn-profile",
+          });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = result.filename;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        },
+        validationFailed: (errors) => {
+          this.actionFailed("download-client-config")(
+            this.$t("accounts." + errors[0].error)
+          );
+        },
+        aborted: this.actionFailed("download-client-config"),
+        failed: this.actionFailed("download-client-config"),
+      });
+    },
+    startEnrollment(row) {
+      this.totpAccount = row.name;
+      this.totpCode = "";
+      this.enrollment = null;
+      this.qrDataUrl = "";
+      this.error.enrollTotp = "";
+      this.error.confirmTotp = "";
+      this.error.code = "";
+      this.isShownTotpModal = true;
+      this.loading.enrollTotp = true;
+      this.runModuleTask({
+        action: "enroll-totp",
+        data: { name: row.name },
+        isNotificationHidden: true,
+        completed: async (result) => {
+          this.enrollment = result;
+          this.qrDataUrl = await QRCode.toDataURL(result.uri, { margin: 1 });
+          this.loading.enrollTotp = false;
+          this.$nextTick(() => this.focusElement("code"));
+        },
+        validationFailed: (errors) => {
+          this.error.enrollTotp = this.$t("accounts." + errors[0].error);
+          this.loading.enrollTotp = false;
+        },
+        aborted: (message) => {
+          this.error.enrollTotp = message;
+          this.loading.enrollTotp = false;
+        },
+        failed: (message) => {
+          this.error.enrollTotp = message;
+          this.loading.enrollTotp = false;
+        },
+      });
+    },
+    hideTotpModal() {
+      this.isShownTotpModal = false;
+      // Forget the secret: it cannot be shown again
+      this.enrollment = null;
+      this.qrDataUrl = "";
+      this.totpCode = "";
+    },
+    confirmTotp() {
+      if (!/^\d{6}$/.test(this.totpCode)) {
+        return;
+      }
+      this.loading.confirmTotp = true;
+      this.error.code = "";
+      this.error.confirmTotp = "";
+      this.runModuleTask({
+        action: "confirm-totp",
+        data: { name: this.totpAccount, code: this.totpCode },
+        completed: () => {
+          this.loading.confirmTotp = false;
+          this.hideTotpModal();
+          this.listAccounts();
+        },
+        validationFailed: (errors) => {
+          this.loading.confirmTotp = false;
+          this.error.code = "accounts." + errors[0].error;
+        },
+        aborted: (message) => {
+          this.error.confirmTotp = message;
+          this.loading.confirmTotp = false;
+        },
+        failed: (message) => {
+          this.error.confirmTotp = message;
+          this.loading.confirmTotp = false;
+        },
+      });
+    },
+    showResetTotpModal(row) {
+      this.currentAccount = row.name;
+      this.isShownResetTotpModal = true;
+    },
+    resetTotp() {
+      this.loading.resetTotp = true;
+      this.runModuleTask({
+        action: "reset-totp",
+        data: { name: this.currentAccount },
+        completed: () => {
+          this.loading.resetTotp = false;
+          this.isShownResetTotpModal = false;
+          this.listAccounts();
+        },
+        aborted: (message) => {
+          this.loading.resetTotp = false;
+          this.isShownResetTotpModal = false;
+          this.actionFailed("reset-totp")(message);
+        },
+        failed: (message) => {
+          this.loading.resetTotp = false;
+          this.isShownResetTotpModal = false;
+          this.actionFailed("reset-totp")(message);
+        },
+      });
+    },
+    killSession(row) {
+      this.runModuleTask({
+        action: "kill-session",
+        data: { name: row.name },
+        completed: () => this.listAccounts(),
+        aborted: this.actionFailed("kill-session"),
+        failed: this.actionFailed("kill-session"),
+      });
+    },
+    showRemoveModal(row) {
+      this.currentAccount = row.name;
+      this.error.removeAccount = "";
+      this.isShownRemoveModal = true;
+    },
+    removeAccount() {
+      this.loading.removeAccount = true;
+      this.error.removeAccount = "";
+      this.runModuleTask({
+        action: "remove-account",
+        data: { name: this.currentAccount },
+        isNotificationHidden: false,
+        completed: () => {
+          this.loading.removeAccount = false;
+          this.isShownRemoveModal = false;
+          this.listAccounts();
+        },
+        aborted: (message) => {
+          this.error.removeAccount = message;
+          this.loading.removeAccount = false;
+        },
+        failed: (message) => {
+          this.error.removeAccount = message;
+          this.loading.removeAccount = false;
+        },
+      });
+    },
+  },
+};
+</script>
+
+<style scoped lang="scss">
+@import "../styles/carbon-utils";
+
+.mg-bottom {
+  margin-bottom: $spacing-06;
+}
+
+.mg-bottom-sm {
+  margin-bottom: $spacing-04;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-05;
+  margin-bottom: $spacing-05;
+}
+
+// The modal body scrolls: leave room so the user list opens without being cut
+.add-form {
+  min-height: 22rem;
+}
+
+.qr img {
+  width: 12rem;
+  height: 12rem;
+  image-rendering: pixelated;
+}
+</style>
