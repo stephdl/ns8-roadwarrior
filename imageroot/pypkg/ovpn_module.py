@@ -5,6 +5,7 @@
 
 """Shared helpers of the OpenVPN module. Every path is relative to the module state directory."""
 
+import base64
 import ipaddress
 import json
 import os
@@ -15,6 +16,9 @@ import sys
 from datetime import datetime, timezone
 
 import agent
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import agent.ldapproxy
 
 CONTAINER = "openvpn-server"
@@ -253,3 +257,25 @@ def require_server():
     if not server_running():
         fail_validation("name", "", "server_not_running")
 
+
+def seal(payload, public_key):
+    """Encrypt payload for the browser that sent public_key (base64 SPKI, RSA-OAEP SHA-256).
+
+    The core keeps task output in Redis for hours: only ciphertext must land there.
+    Without public_key, the payload is returned as is, for api-cli users on the node.
+    """
+    if not public_key:
+        return payload
+    try:
+        key = serialization.load_der_public_key(base64.b64decode(public_key))
+    except ValueError:
+        fail_validation("public_key", "", "invalid_public_key")
+    aes_key = AESGCM.generate_key(bit_length=256)
+    iv = os.urandom(12)
+    data = AESGCM(aes_key).encrypt(iv, json.dumps(payload).encode(), None)
+    wrapped = key.encrypt(aes_key, padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
+    return {"sealed": {
+        "key": base64.b64encode(wrapped).decode(),
+        "iv": base64.b64encode(iv).decode(),
+        "data": base64.b64encode(data).decode(),
+    }}
