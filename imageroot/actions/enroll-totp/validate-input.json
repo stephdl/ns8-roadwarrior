@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "enroll-totp input",
+    "$id": "http://schema.nethserver.org/roadwarrior/enroll-totp-input.json",
+    "description": "Name of the VPN account",
+    "examples": [
+        {
+            "name": "alice"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "name"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "public_key": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "Base64 SPKI RSA-OAEP key of the browser: the output is encrypted for it"
+        }
+    }
+}

@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Talk to the OpenVPN management socket.
+#   ovpn-mgmt status     print the connected clients as JSON
+#   ovpn-mgmt kill NAME  disconnect every session of a certificate name, and tell the clients
+#                        to stop instead of reconnecting. Their session token stops working too.
+
+import json
+import os
+import socket
+import sys
+import time
+
+SOCKET = "/etc/openvpn/run/mgmt.sock"
+# Read by ovpn-auth: a session token issued before this time no longer logs in
+TOKEN_CUTOFF = "/etc/openvpn/token-cutoff.json"
+
+
+def command(cmd, end):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(5)
+        sock.connect(SOCKET)
+        buf = b""
+        # Skip the banner line
+        while b"\n" not in buf:
+            chunk = sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("management socket closed before the banner")
+            buf += chunk
+        buf = buf.split(b"\n", 1)[1]
+        sock.sendall(cmd.encode() + b"\n")
+        while not any(line.startswith(end) for line in buf.decode(errors="replace").splitlines()):
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+        return buf.decode(errors="replace")
+
+
+def clients():
+    out = command("status 3", "END")
+    clients = []
+    header = []
+    for line in out.splitlines():
+        fields = line.split("\t")
+        if fields[0] == "HEADER" and fields[1] == "CLIENT_LIST":
+            header = fields[2:]
+        elif fields[0] == "CLIENT_LIST" and header:
+            row = dict(zip(header, fields[1:]))
+            clients.append({
+                "cid": row.get("Client ID", ""),
+                "name": row.get("Common Name", ""),
+                "username": row.get("Username", ""),
+                "real_address": row.get("Real Address", ""),
+                "vpn_address": row.get("Virtual Address", ""),
+                "bytes_received": int(row.get("Bytes Received") or 0),
+                "bytes_sent": int(row.get("Bytes Sent") or 0),
+                "connected_since": int(row.get("Connected Since (time_t)") or 0),
+            })
+    return clients
+
+
+def status():
+    json.dump([{k: v for k, v in c.items() if k != "cid"} for c in clients()], sys.stdout)
+
+
+def cut_tokens(name):
+    try:
+        with open(TOKEN_CUTOFF) as f:
+            cutoff = json.load(f)
+    except (FileNotFoundError, ValueError):
+        cutoff = {}
+    cutoff[name.lower()] = int(time.time())
+    tmp = TOKEN_CUTOFF + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cutoff, f)
+    os.replace(tmp, TOKEN_CUTOFF)
+
+
+def kill(name):
+    # Before the kill: a client that reconnects at once must not get back in with its token
+    cut_tokens(name)
+    sessions = [c for c in clients() if c["name"].lower() == name.lower()]
+    if not sessions:
+        print(f"ERROR: common name '{name}' not found", file=sys.stderr)
+        sys.exit(1)
+    for session in sessions:
+        # HALT tells the client to stop, the default RESTART makes it reconnect
+        out = command(f"client-kill {session['cid']} HALT", ("SUCCESS", "ERROR"))
+        print(out.strip(), file=sys.stderr)
+        if "SUCCESS" not in out:
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["status"]:
+        status()
+    elif sys.argv[1:2] == ["kill"] and len(sys.argv) == 3:
+        kill(sys.argv[2])
+    else:
+        print("usage: ovpn-mgmt status|kill NAME", file=sys.stderr)
+        sys.exit(2)

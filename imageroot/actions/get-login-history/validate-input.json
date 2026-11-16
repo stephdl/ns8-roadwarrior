@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Get the login history of an account",
+    "$id": "http://schema.nethserver.org/roadwarrior/get-login-history-input.json",
+    "description": "Name of the VPN account. Without it, the history of all the accounts",
+    "examples": [
+        {
+            "name": "alice"
+        },
+        {}
+    ],
+    "type": "object",
+    "required": [],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        }
+    }
+}

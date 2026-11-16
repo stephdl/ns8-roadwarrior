@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Add a VPN account",
+    "$id": "http://schema.nethserver.org/roadwarrior/add-account-input.json",
+    "description": "Issue a client certificate. With password logins, the name is a user of the user domain.",
+    "examples": [
+        {
+            "name": "alice"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "name"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        }
+    }
+}

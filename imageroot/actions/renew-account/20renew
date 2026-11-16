@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A new certificate for the same account: the authenticator and the history stay,
+# the old profile stops working and the user downloads a new one
+
+import json
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+om.require_server()
+om.require_enabled_account(name)
+om.podman_exec("ovpn-pki", "renew", name)
+om.podman_exec("ovpn-mgmt", "kill", name, check=False)

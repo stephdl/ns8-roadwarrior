@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+exec 1>&2
+
+rm -f waiting-for-original
+systemctl --user enable openvpn-server.service openvpn-dns.service
+if [ -e ovpn/restart-needed ]; then
+    systemctl --user restart openvpn-server.service openvpn-dns.service
+    rm -f ovpn/restart-needed
+else
+    # Only the resolver lists changed: no client is dropped
+    systemctl --user reload-or-restart openvpn-dns.service
+fi

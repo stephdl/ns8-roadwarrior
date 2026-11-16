@@ -1,0 +1,124 @@
+#!/bin/sh
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# PKI of the server. Keys never leave the volume, except inside a client profile.
+#   ovpn-pki init                  create the CA and the server keys once
+#   ovpn-pki add NAME              issue a client certificate
+#   ovpn-pki revoke NAME           revoke it and publish the new CRL
+#   ovpn-pki renew NAME            revoke the certificate of NAME and issue a new one
+#   ovpn-pki profile NAME          print the client profile
+#   ovpn-pki list                  print "name status expiry" for every client certificate
+#   ovpn-pki ca-expiry             print the CA expiry date
+
+set -e
+
+. /run/ovpn/server.env
+
+export EASYRSA_PKI=/etc/openvpn/pki
+export EASYRSA_BATCH=1
+export EASYRSA_ALGO=ec
+export EASYRSA_CURVE=secp384r1
+# OpenVPN refuses every client once the CRL expires
+export EASYRSA_CRL_DAYS=3650
+export EASYRSA_CERT_EXPIRE=3650
+export EASYRSA_CA_EXPIRE=7300
+easyrsa=/usr/share/easy-rsa/easyrsa
+pki=${EASYRSA_PKI}
+
+pem() {
+    openssl x509 -in "$1" -outform PEM
+}
+
+case "$1" in
+init)
+    if [ ! -f "${pki}/ca.crt" ]; then
+        "${easyrsa}" init-pki >&2
+        EASYRSA_REQ_CN="${OVPN_CA_CN:-NS8 OpenVPN CA}" "${easyrsa}" build-ca nopass >&2
+        "${easyrsa}" build-server-full server nopass >&2
+        "${easyrsa}" gen-crl >&2
+        openvpn --genkey secret "${pki}/tls-crypt.key"
+        openvpn --genkey auth-token "${pki}/auth-token.key"
+    fi
+    ;;
+add)
+    name=${2:?name}
+    # A crash between two steps can leave files of a name without a valid certificate.
+    # Compare the name as a plain string: a dot in it must not match another name.
+    if ! awk -F'\t' -v cn="/CN=${name}" '$1 == "V" && $6 == cn {found=1} END {exit !found}' "${pki}/index.txt"; then
+        rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
+    fi
+    "${easyrsa}" build-client-full "${name}" nopass >&2
+    ;;
+revoke)
+    name=${2:?name}
+    "${easyrsa}" revoke "${name}" >&2
+    "${easyrsa}" gen-crl >&2
+    # The serial stays in the CRL: freeing the name lets the account come back with a new certificate
+    rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
+    ;;
+renew)
+    name=${2:?name}
+    # Same account, new key: the old profile is refused from now on
+    "$0" revoke "${name}"
+    "$0" add "${name}"
+    ;;
+profile)
+    name=${2:?name}
+    cat <<EOF
+client
+dev tun
+proto udp
+remote ${OVPN_REMOTE} ${OVPN_PORT}
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+verify-x509-name server name
+data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305
+verb 3
+EOF
+    if [ "${AUTH_MODE}" = "certificate_password" ]; then
+        echo "auth-user-pass"
+        echo "auth-nocache"
+        # The server asks the authenticator code after the password (dynamic challenge).
+        # The command line client answers it only with interact, graphical clients always do.
+        echo "auth-retry interact"
+    fi
+    echo "<ca>"
+    pem "${pki}/ca.crt"
+    echo "</ca>"
+    echo "<cert>"
+    pem "${pki}/issued/${name}.crt"
+    echo "</cert>"
+    echo "<key>"
+    cat "${pki}/private/${name}.key"
+    echo "</key>"
+    echo "<tls-crypt>"
+    cat "${pki}/tls-crypt.key"
+    echo "</tls-crypt>"
+    ;;
+list)
+    # index.txt: status, expiry, revocation, serial, file, subject.
+    # A past expiry keeps the V status until "easyrsa update-db": compare the dates here.
+    # The expiry is YYMMDDhhmmssZ before 2050 and YYYYMMDDhhmmssZ after.
+    awk -F '\t' -v now="$(date -u +%Y%m%d%H%M%SZ)" '{
+        n = $6; sub(/.*CN=/, "", n); sub(/\/.*/, "", n)
+        end = (length($2) == 13 ? "20" : "") $2
+        st = ($1 == "V" && end < now) ? "E" : $1
+        if (n != "server") print n, st, $2
+    }' "${pki}/index.txt"
+    ;;
+ca-expiry)
+    # ISO 8601 so that every browser parses it
+    openssl x509 -in "${pki}/ca.crt" -noout -enddate -dateopt iso_8601 | cut -d= -f2 | sed 's/ /T/' 
+    ;;
+*)
+    echo "usage: ovpn-pki init|add|revoke|profile|list|ca-expiry" >&2
+    exit 2
+    ;;
+esac

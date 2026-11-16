@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A restore or a move with "replace" installs the copy before it removes the original.
+# The copy stays stopped while the original holds the tun network and the UDP port, and
+# leaves a marker: once a module leaves this node, try to start it again. Without the marker
+# the VPN stopped for another reason, and removing an app must not touch it.
+
+import json
+import os
+import subprocess
+import sys
+import ovpn_module as om
+
+event = json.load(sys.stdin)
+if str(event.get("node")) != os.environ["NODE_ID"] or event.get("module") == os.environ["MODULE_ID"]:
+    sys.exit(0)
+if not os.path.exists(om.WAITING) or om.server_running():
+    sys.exit(0)
+sys.exit(subprocess.run(["ovpn-reconfigure"], check=False).returncode)

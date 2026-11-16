@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "kill-session input",
+    "$id": "http://schema.nethserver.org/roadwarrior/kill-session-input.json",
+    "description": "Name of the VPN account",
+    "examples": [
+        {
+            "name": "alice"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "name"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        }
+    }
+}

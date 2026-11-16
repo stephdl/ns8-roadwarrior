@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Run before the server starts: the LDAP settings and the app names may have changed since configure-module.
+
+import os
+import ovpn_module as om
+
+# Both directories are mounted in the containers, podman refuses a missing one
+os.makedirs(om.RUNTIME_DIR, exist_ok=True)
+os.makedirs("secrets", mode=0o700, exist_ok=True)
+om.write_runtime()

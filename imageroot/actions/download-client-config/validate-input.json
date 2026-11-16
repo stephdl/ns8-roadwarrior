@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "download-client-config input",
+    "$id": "http://schema.nethserver.org/roadwarrior/download-client-config-input.json",
+    "description": "Name of the VPN account",
+    "examples": [
+        {
+            "name": "alice"
+        },
+        {
+            "name": "alice",
+            "format": "zip"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "name"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "public_key": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "Base64 SPKI RSA-OAEP key of the browser: the output is encrypted for it"
+        },
+        "format": {
+            "type": "string",
+            "enum": [
+                "ovpn",
+                "zip"
+            ],
+            "default": "ovpn",
+            "description": "ovpn: one profile with the keys inside. zip: the same profile plus the keys as separate files, for clients that need them apart"
+        }
+    }
+}

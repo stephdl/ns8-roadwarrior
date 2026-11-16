@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# The profile embeds the private key of the client: the UI must hide the task output
+
+import base64
+import io
+import json
+import os
+import re
+import sys
+import zipfile
+import ovpn_module as om
+
+
+def separate_files(name, host, profile):
+    """Split the inline blocks of the profile into files, and a profile that points to them"""
+    blocks = {"ca": "ca.crt", "cert": f"{name}.crt", "key": f"{name}.key", "tls-crypt": "tls-crypt.key"}
+    files = {}
+    lines = []
+    for tag, filename in blocks.items():
+        match = re.search(rf"<{tag}>\n(.*?)</{tag}>\n", profile, re.S)
+        files[filename] = match.group(1)
+        profile = profile.replace(match.group(0), "")
+        lines.append(f"{tag} {filename}")
+    files[f"{name}@{host}-separate-files.ovpn"] = profile.rstrip("\n") + "\n" + "\n".join(lines) + "\n"
+    return files
+
+request = json.load(sys.stdin)
+name = request["name"]
+om.require_server()
+if name not in om.load_accounts():
+    om.fail_validation("name", name, "account_not_found")
+if om.pki_list().get(name, {}).get("status") != "valid":
+    om.fail_validation("name", name, "certificate_not_valid")
+if request.get("public_key"):
+    om.load_public_key(request["public_key"])
+
+profile = om.podman_exec("ovpn-pki", "profile", name).stdout
+# An IPv6 host holds ":", refused in Windows file names
+host = os.environ.get("OVPN_HOST", "vpn").replace(":", "-")
+result = {"filename": f"{name}@{host}.ovpn", "profile": profile}
+if request.get("format") == "zip":
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{name}@{host}/{name}@{host}.ovpn", profile)
+        for filename, content in separate_files(name, host, profile).items():
+            zf.writestr(f"{name}@{host}/{filename}", content)
+    result = {"filename": f"{name}@{host}.zip", "archive": base64.b64encode(archive.getvalue()).decode()}
+json.dump(om.seal(result, request.get("public_key")), fp=sys.stdout)

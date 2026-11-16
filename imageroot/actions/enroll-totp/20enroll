@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Create a new secret, not yet active: confirm-totp turns it on once the user proves the app works.
+# The secret is returned once and never again.
+
+import base64
+import json
+import os
+import secrets
+import sys
+import urllib.parse
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+name = request["name"]
+if os.environ.get("OVPN_AUTH_MODE") != "certificate_password":
+    om.fail_validation("name", name, "totp_needs_password")
+om.require_enabled_account(name)
+
+if request.get("public_key"):
+    om.load_public_key(request["public_key"])
+
+secret = base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+totp = om.load_totp()
+# A confirmed secret stays active until the new one is confirmed
+entry = totp.get(name, {})
+entry["pending"] = secret
+totp[name] = entry
+om.save_totp(totp)
+
+issuer = f"OpenVPN {os.environ.get('OVPN_HOST', '')}".strip()
+label = urllib.parse.quote(f"{issuer}:{name}")
+uri = f"otpauth://totp/{label}?" + urllib.parse.urlencode({"secret": secret, "issuer": issuer})
+json.dump(om.seal({"secret": secret, "uri": uri}, request.get("public_key")), fp=sys.stdout)

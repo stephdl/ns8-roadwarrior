@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# auth-user-pass-verify script. The check runs in a child process and writes its result to
+# auth_control_file, so a slow LDAP server does not stall the other clients.
+# The certificate name must match the user name: one user cannot log in with the certificate of another.
+# /run/ovpn/auth.json holds the LDAP settings, /run/ovpn-secrets the bind password and the TOTP secrets.
+#
+# "ovpn-auth totp-check" reads {"secret", "code"} on stdin and exits 0 if the code is right.
+# The module uses it to confirm an enrollment, so both sides share one TOTP check.
+
+import base64
+import fcntl
+import hashlib
+import hmac
+import json
+import os
+import secrets
+import struct
+import subprocess
+import sys
+import time
+
+import ldap3
+
+from ovpn_common import is_disabled
+from ldap3.utils.conv import escape_filter_chars
+
+TOTP_STEP = 30
+# One step before and after, for clocks that drift a little
+TOTP_WINDOW = 1
+# Last code step used by each user: a code works once
+TOTP_USED = "/etc/openvpn/totp-used.json"
+# Pending dynamic challenges: the password passed, the code is still to come
+CHALLENGES = "/etc/openvpn/run/challenges.json"
+CHALLENGE_TTL = 180
+CHALLENGE_TEXT = "Authenticator code"
+
+
+class Refused(Exception):
+    def __init__(self, reason, message):
+        super().__init__(message)
+        # Short code for the login history
+        self.reason = reason
+
+
+def log(message):
+    print(f"ovpn-auth: {message}", file=sys.stderr, flush=True)
+
+
+def totp_counter(secret, code):
+    """Return the time step that matches the code, or None"""
+    if not (code.isdigit() and len(code) == 6):
+        return None
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    now = int(time.time()) // TOTP_STEP
+    for counter in range(now - TOTP_WINDOW, now + TOTP_WINDOW + 1):
+        digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        value = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1000000
+        if hmac.compare_digest(f"{value:06d}", code):
+            return counter
+    return None
+
+
+def consume_totp(username, counter):
+    with open(TOTP_USED + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(TOTP_USED) as f:
+                used = json.load(f)
+        except (FileNotFoundError, ValueError):
+            used = {}
+        if counter <= used.get(username, -1):
+            raise Refused("code_reused", f"user {username!r}: authenticator code already used")
+        used[username] = counter
+        write_private(TOTP_USED, used)
+
+
+def write_private(path, data):
+    tmp = path + ".tmp"
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def update_challenges(change):
+    """Run change(pending) under a lock, drop the expired entries and save"""
+    with open(CHALLENGES + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(CHALLENGES) as f:
+                pending = json.load(f)
+        except (FileNotFoundError, ValueError):
+            pending = {}
+        now = time.time()
+        pending = {k: v for k, v in pending.items() if now - v["time"] < CHALLENGE_TTL}
+        result = change(pending)
+        write_private(CHALLENGES, pending)
+        return result
+
+
+def new_challenge(username):
+    state_id = secrets.token_urlsafe(24)
+    update_challenges(lambda pending: pending.update({state_id: {"name": username, "time": time.time()}}))
+    user64 = base64.b64encode(username.encode()).decode()
+    # R: the client must answer, E: the answer may show while typing
+    return f"CRV1:R,E:{state_id}:{user64}:{CHALLENGE_TEXT}"
+
+
+def take_challenge(state_id, username):
+    # The entry goes away at once: a wrong code sends the user back to the password.
+    # Only its owner can spend it, so another user cannot cancel someone else's login.
+    def take(pending):
+        if pending.get(state_id, {}).get("name") != username:
+            return False
+        del pending[state_id]
+        return True
+    return update_challenges(take)
+
+
+def ldap_ok(conf, username, password):
+    attr = "sAMAccountName" if conf["schema"] == "ad" else "uid"
+    server = ldap3.Server(conf["host"], port=int(conf["port"]), connect_timeout=5)
+    with open("/run/ovpn-secrets/ldap-bind-password") as f:
+        bind_password = f.read().strip()
+    with ldap3.Connection(server, conf["bind_dn"], bind_password, auto_bind=True, receive_timeout=10) as conn:
+        conn.search(conf["base_dn"], f"(&(objectClass=person)({attr}={escape_filter_chars(username)}))",
+                    attributes=[], size_limit=2)
+        if len(conn.entries) != 1:
+            return False
+        user_dn = conn.entries[0].entry_dn
+    try:
+        with ldap3.Connection(server, user_dn, password, auto_bind=True, receive_timeout=10):
+            return True
+    except ldap3.core.exceptions.LDAPBindError:
+        return False
+
+
+def check(username, password, common_name):
+    # LDAP names ignore case: "Alice" is the user of the certificate "alice"
+    if username.lower() != common_name.lower():
+        raise Refused("certificate_mismatch", f"user {username!r} does not match certificate {common_name!r}")
+    username = common_name
+
+    # ovpn-connect refuses it too, but only after this check: stop before the LDAP bind,
+    # or the user domain counts a bad password for a disabled account
+    if is_disabled(username):
+        raise Refused("account_disabled", f"user {username!r}: account disabled")
+
+    with open("/run/ovpn/auth.json") as f:
+        conf = json.load(f)
+    try:
+        with open("/run/ovpn-secrets/totp.json") as f:
+            totp = json.load(f).get(username, {})
+    except FileNotFoundError:
+        totp = {}
+
+    # Second step of the dynamic challenge: CRV1::<state>::<code>
+    if password.startswith("CRV1::"):
+        state_id, _, code = password[len("CRV1::"):].partition("::")
+        if not take_challenge(state_id, username):
+            raise Refused("challenge_expired", f"user {username!r}: unknown or expired challenge")
+        counter = totp_counter(totp["secret"], code.strip()) if totp.get("confirmed") else None
+        if counter is None:
+            raise Refused("wrong_code", f"user {username!r}: wrong authenticator code")
+        consume_totp(username, counter)
+        record_full_auth(username)
+        log(f"user {username!r} accepted")
+        return None
+
+    if not totp.get("confirmed") and conf.get("totp_required"):
+        raise Refused("totp_not_enrolled", f"user {username!r}: authenticator required but not enrolled")
+
+    if not password or not ldap_ok(conf, username, password):
+        raise Refused("wrong_password", f"user {username!r}: wrong password")
+    if totp.get("confirmed"):
+        log(f"user {username!r}: password accepted, asking for the authenticator code")
+        return new_challenge(username)
+    record_full_auth(username)
+    log(f"user {username!r} accepted")
+    return None
+
+
+def run_check(username, password, common_name):
+    """Return (accepted, challenge) and record a refusal in the history"""
+    try:
+        challenge = check(username, password, common_name)
+        return challenge is None, challenge
+    except Refused as exc:
+        log(str(exc))
+        reason = exc.reason
+    except Exception as exc:
+        log(f"error: {exc}")
+        reason = "error"
+    try:
+        # OpenVPN runs this script without PATH
+        subprocess.run(["/usr/local/bin/ovpn-history", "refused", common_name, reason], check=False)
+    except OSError as exc:
+        log(f"cannot record the refused login: {exc}")
+    return False, None
+
+
+AUTH_TIMES = "/etc/openvpn/last-full-auth.json"
+
+
+def record_full_auth(name):
+    """Remember when the account last passed the full check: password, then code"""
+    with open(AUTH_TIMES + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(AUTH_TIMES) as f:
+                times = json.load(f)
+        except (FileNotFoundError, ValueError):
+            times = {}
+        times[name.lower()] = int(time.time())
+        write_private(AUTH_TIMES, times)
+
+
+def token_cut(name):
+    """True if an admin disconnected the account after its last full login.
+
+    The session token lives 12 hours and skips the password: a disconnect must end it.
+    """
+    try:
+        with open("/etc/openvpn/token-cutoff.json") as f:
+            cutoff = json.load(f).get(name.lower(), 0)
+    except (FileNotFoundError, ValueError):
+        return False
+    try:
+        with open(AUTH_TIMES) as f:
+            last = json.load(f).get(name.lower(), 0)
+    except (FileNotFoundError, ValueError):
+        last = 0
+    return cutoff >= last
+
+
+def totp_check():
+    """Check a code for the module; with "name", the code is spent like at a login"""
+    request = json.load(sys.stdin)
+    counter = totp_counter(request["secret"], request["code"])
+    if counter is None:
+        sys.exit(1)
+    if request.get("name"):
+        try:
+            consume_totp(request["name"], counter)
+        except Refused:
+            sys.exit(1)
+    sys.exit(0)
+
+
+def main():
+    common_name = os.environ.get("common_name", "")
+    # The session token was checked by OpenVPN itself: the user already passed the full check,
+    # unless an admin disconnected the account after the token was issued
+    if os.environ.get("session_state") in ("Authenticated", "AuthenticatedEmptyUser"):
+        if token_cut(common_name):
+            log(f"user {common_name!r}: session token cut by a disconnect")
+            sys.exit(1)
+        log(f"user {common_name!r} renewed with a session token")
+        sys.exit(0)
+    # The password field holds the old token: an LDAP bind with it would count as a bad password
+    if os.environ.get("session_state") in ("Expired", "ExpiredEmptyUser", "Invalid"):
+        log(f"user {common_name!r}: session token {os.environ['session_state'].lower()}")
+        sys.exit(1)
+
+    # OpenVPN deletes the credentials file when this process exits, read it first
+    with open(sys.argv[1]) as f:
+        lines = f.read().split("\n")
+    username, password = lines[0], lines[1] if len(lines) > 1 else ""
+
+    control_file = os.environ.get("auth_control_file")
+    if not control_file:
+        # The challenge needs auth_failed_reason_file, which only deferred auth provides
+        accepted, challenge = run_check(username, password, common_name)
+        if challenge:
+            log(f"user {common_name!r}: no deferred auth, cannot ask for the authenticator code")
+        sys.exit(0 if accepted else 1)
+
+    if os.fork() > 0:
+        # Exit code 2: the result comes later through auth_control_file
+        sys.exit(2)
+    os.setsid()
+    result = "0"
+    try:
+        accepted, challenge = run_check(username, password, common_name)
+        reason_file = os.environ.get("auth_failed_reason_file")
+        if challenge and reason_file:
+            # OpenVPN reads the reason when the control file says 0: write it first
+            with open(reason_file, "w") as f:
+                f.write(challenge)
+        elif challenge:
+            log(f"user {common_name!r}: no auth_failed_reason_file, cannot ask for the authenticator code")
+        result = "1" if accepted else "0"
+    finally:
+        # Always answer, or the client waits until the handshake times out
+        with open(control_file, "w") as f:
+            f.write(result)
+        os._exit(0)
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["totp-check"]:
+        totp_check()
+    main()
