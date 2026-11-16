@@ -5,18 +5,13 @@
 
 """Shared helpers of the OpenVPN module. Every path is relative to the module state directory."""
 
-import base64
-import hashlib
-import hmac
 import ipaddress
 import json
 import os
 import re
 import shlex
-import struct
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 
 import agent
@@ -200,8 +195,9 @@ def write_runtime(rdb=None):
     return new_server_env != old_server_env
 
 
-def podman_exec(*args, check=True):
-    proc = subprocess.run(["podman", "exec", CONTAINER, *args], capture_output=True, text=True)
+def podman_exec(*args, check=True, input=None):
+    cmd = ["podman", "exec"] + (["-i"] if input is not None else []) + [CONTAINER, *args]
+    proc = subprocess.run(cmd, capture_output=True, text=True, input=input)
     if proc.stderr:
         log(proc.stderr.rstrip())
     if check and proc.returncode != 0:
@@ -240,19 +236,11 @@ def save_totp(data):
     save_json(TOTP_FILE, data, private=True)
 
 
-def totp_ok(secret, code, step=30, window=1):
-    # Same check as ovpn-auth in the server image
-    if not (code.isdigit() and len(code) == 6):
-        return False
-    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
-    counter_now = int(time.time()) // step
-    for counter in range(counter_now - window, counter_now + window + 1):
-        digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
-        offset = digest[-1] & 0x0F
-        value = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1000000
-        if hmac.compare_digest(f"{value:06d}", code):
-            return True
-    return False
+def totp_ok(secret, code):
+    # The server image owns the TOTP check, so enrollment and login agree on the same rules
+    proc = podman_exec("ovpn-auth", "totp-check", check=False,
+                       input=json.dumps({"secret": secret, "code": code}))
+    return proc.returncode == 0
 
 
 def fail_validation(field, value, error):
@@ -264,3 +252,4 @@ def fail_validation(field, value, error):
 def require_server():
     if not server_running():
         fail_validation("name", "", "server_not_running")
+
