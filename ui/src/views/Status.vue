@@ -59,6 +59,7 @@
               <div class="card-rows">
                 <div v-if="config.configured" class="card-row">
                   <NsTag
+                    v-if="vpnLoaded"
                     :label="
                       vpn.running ? $t('status.running') : $t('status.stopped')
                     "
@@ -408,6 +409,8 @@ export default {
       vpn: { running: false, sessions: [], ca_expiry: "" },
       status: { instance: "", services: [], images: [], volumes: [] },
       sessionsPage: [],
+      // Hide the server state until the first answer: a default "stopped" would mislead
+      vpnLoaded: false,
       sessionColumns: [
         "name",
         "vpn_address",
@@ -537,6 +540,7 @@ export default {
         action: "get-vpn-status",
         completed: (output) => {
           this.vpn = output;
+          this.vpnLoaded = true;
           this.loading.getVpnStatus = false;
         },
         aborted: fail,
