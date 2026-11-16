@@ -18,9 +18,11 @@ tun = os.environ["OVPN_TUN"]
 net, server_ip = om.network_parts(conf["OVPN_NETWORK"])
 tun_ip = f"{server_ip}/{net.prefixlen}"
 
-# tun-manager only sets the address when it starts: a new network needs a new tun
-if os.environ.get("OVPN_TUN_IP") != tun_ip:
-    if os.environ.get("OVPN_TUN_IP"):
+# tun-manager only sets the address when it starts: a new network needs a new tun.
+# A clone or a restore lands on a node without the tun, whatever OVPN_TUN_IP says.
+tun_exists = os.path.exists(f"/sys/class/net/{tun}")
+if not tun_exists or os.environ.get("OVPN_TUN_IP") != tun_ip:
+    if tun_exists:
         # OpenVPN holds the tun open: tun-manager cannot delete a busy device
         subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
         agent.remove_tun(tun)

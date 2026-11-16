@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Run configure-module with the saved settings after a clone, a move or a restore.
+# The tun, its firewall zone, the public port and the user domain binding belong to the node,
+# so the copy must create them again. The PKI comes with the state: profiles stay valid.
+#
+# If the original instance still runs on this node, its port and network conflict.
+# The copy then stays stopped, and the admin saves the settings again once the original is gone.
+
+import json
+import os
+import subprocess
+import sys
+import agent
+import ovpn_module as om
+
+conf = om.settings()
+if not conf["OVPN_HOST"]:
+    sys.exit(0)
+data = {
+    "host": conf["OVPN_HOST"],
+    "port": int(conf["OVPN_PORT"]),
+    "network": conf["OVPN_NETWORK"],
+    "auth_mode": conf["OVPN_AUTH_MODE"],
+    "user_domain": conf["OVPN_USER_DOMAIN"],
+    "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
+    "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+}
+response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
+if response["exit_code"] == 2:
+    subprocess.run(["systemctl", "--user", "disable", "--now", "openvpn-server.service", "openvpn-dns.service"], check=False)
+    print(agent.SD_WARNING + "The VPN stays stopped, its settings conflict with this node: "
+          + json.dumps(response["output"]), file=sys.stderr)
+    print(agent.SD_WARNING + "Remove the original instance, then save the settings again", file=sys.stderr)
+    sys.exit(0)
+agent.assert_exp(response["exit_code"] == 0, "configure-module failed")
