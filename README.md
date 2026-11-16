@@ -61,6 +61,12 @@ Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In pa
     api-cli run disable-account --agent module/roadwarrior1 --data '{"name": "john"}'
     api-cli run enable-account --agent module/roadwarrior1 --data '{"name": "john"}'
 
+    api-cli run renew-account --agent module/roadwarrior1 --data '{"name": "john"}'
+
+`renew-account` revokes the certificate of the account and issues a new one. The authenticator and the login history stay. The profile already sent stops working, so send the new one. Use it when a laptop is lost but the account must stay.
+
+Certificates last 10 years and the CA 20 years. The status page warns 90 days before the CA expires.
+
 `disable-account` closes the session and refuses every new one, in every authentication mode. The certificate stays valid, so `enable-account` gives the access back with the same profile. `kill-session` returns `no_session` if the account is not connected.
 
 `list-accounts` returns the certificate status, the authenticator status, the session state and the last login time of each account.
@@ -130,7 +136,7 @@ See [Use the VPN](docs/network.md#use-the-vpn) to check that the traffic of a cl
 
 ## Status
 
-`get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The UI warns 90 days before the CA expires.
+`get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The Sessions page lists the open sessions, refreshes every 30 seconds and can disconnect one.
 
 ## Backup, restore, clone and move
 

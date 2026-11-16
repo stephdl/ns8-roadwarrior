@@ -199,6 +199,15 @@
                         :label="$t('accounts.disconnect')"
                       />
                     </cv-overflow-menu-item>
+                    <cv-overflow-menu-item
+                      :disabled="row.disabled || row.certificate === 'revoked'"
+                      @click="showRenewModal(row)"
+                    >
+                      <NsMenuItem
+                        :icon="Renew20"
+                        :label="$t('accounts.renew')"
+                      />
+                    </cv-overflow-menu-item>
                     <cv-overflow-menu-item @click="toggleAccount(row)">
                       <NsMenuItem
                         :icon="Power20"
@@ -387,6 +396,25 @@
       }}</template>
       <template slot="primary-button">{{ $t("accounts.reset") }}</template>
     </NsModal>
+    <!-- renew certificate -->
+    <NsModal
+      size="default"
+      kind="danger"
+      :visible="isShownRenewModal"
+      :primary-button-disabled="loading.renewAccount"
+      :isLoading="loading.renewAccount"
+      @modal-hidden="isShownRenewModal = false"
+      @primary-click="renewAccount"
+    >
+      <template slot="title">{{ $t("accounts.renew_title") }}</template>
+      <template slot="content">
+        <p>{{ $t("accounts.renew_description", { name: currentAccount }) }}</p>
+      </template>
+      <template slot="secondary-button">{{
+        core.$t("common.cancel")
+      }}</template>
+      <template slot="primary-button">{{ $t("accounts.renew") }}</template>
+    </NsModal>
     <!-- login history -->
     <NsModal
       size="large"
@@ -506,6 +534,7 @@ import Password20 from "@carbon/icons-vue/es/password/20";
 import Logout20 from "@carbon/icons-vue/es/logout/20";
 import RecentlyViewed20 from "@carbon/icons-vue/es/recently-viewed/20";
 import Power20 from "@carbon/icons-vue/es/power/20";
+import Renew20 from "@carbon/icons-vue/es/renew/20";
 
 export default {
   name: "Accounts",
@@ -531,6 +560,8 @@ export default {
       Logout20,
       RecentlyViewed20,
       Power20,
+      Renew20,
+      isShownRenewModal: false,
       history: [],
       historyPage: [],
       historyColumns: ["time", "event", "address", "detail"],
@@ -565,6 +596,7 @@ export default {
         confirmTotp: false,
         resetTotp: false,
         removeAccount: false,
+        renewAccount: false,
         getLoginHistory: false,
         downloadAllHistory: false,
       },
@@ -1014,6 +1046,39 @@ export default {
           label.toLowerCase().includes(text)
         )
       );
+    },
+    showRenewModal(row) {
+      this.currentAccount = row.name;
+      this.isShownRenewModal = true;
+    },
+    renewAccount() {
+      this.loading.renewAccount = true;
+      this.error.action = "";
+      const done = () => {
+        this.loading.renewAccount = false;
+        this.isShownRenewModal = false;
+        this.listAccounts();
+      };
+      this.runModuleTask({
+        action: "renew-account",
+        data: { name: this.currentAccount },
+        isNotificationHidden: false,
+        completed: done,
+        validationFailed: (errors) => {
+          done();
+          this.actionFailed("renew-account")(
+            this.$t("accounts." + errors[0].error)
+          );
+        },
+        aborted: (message) => {
+          done();
+          this.actionFailed("renew-account")(message);
+        },
+        failed: (message) => {
+          done();
+          this.actionFailed("renew-account")(message);
+        },
+      });
     },
     toggleAccount(row) {
       const action = row.disabled ? "enable-account" : "disable-account";

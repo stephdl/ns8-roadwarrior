@@ -24,7 +24,8 @@
     "reset-totp": "Berrezarri autentifikatzailea",
     "kill-session": "Deskonektatu saio bat",
     "disable-account": "Desgaitu kontu bat",
-    "enable-account": "Gaitu kontu bat"
+    "enable-account": "Gaitu kontu bat",
+    "renew-account": "Berritu ziurtagiri bat"
   },
   "error": {
     "error": "Errorea",
@@ -63,17 +64,9 @@
     "running": "Martxan",
     "stopped": "Geldituta",
     "connected_clients": "Bezero konektatua | Bezero konektatuak",
-    "go_to_accounts": "Joan kontuetara",
-    "sessions": "Saio aktiboak",
-    "no_sessions": "Ez dago bezerorik konektatuta",
-    "search_sessions": "Bilatu saioak",
-    "column_name": "Kontua",
-    "column_vpn_address": "VPN helbidea",
-    "column_real_address": "Helbide publikoa",
-    "column_since": "Konektatuta noiztik",
-    "column_traffic": "Jasota / bidalita",
     "ca_expiry_title": "VPNaren ziurtagiri-agintaritza laster iraungiko da",
-    "ca_expiry_description": "{date} datan iraungiko da. Data horren ondoren, ezin da bezerorik konektatu."
+    "ca_expiry_description": "{date} datan iraungiko da. Data horren ondoren, ezin da bezerorik konektatu.",
+    "go_to_sessions": "Joan saioetara"
   },
   "accounts": {
     "title": "Kontuak",
@@ -165,7 +158,10 @@
     "enable_title": "Gaitu {name} kontua",
     "reason_account_disabled": "Kontua desgaituta",
     "enabled": "Gaituta",
-    "account_disabled": "Kontu hau desgaituta dago"
+    "account_disabled": "Kontu hau desgaituta dago",
+    "renew": "Berritu ziurtagiria",
+    "renew_title": "Berritu ziurtagiria",
+    "renew_description": "{name} kontuak ziurtagiri berria jasotzen du eta oraingoa baliogabetzen da. Irekitako saioa ixten da eta lehendik bidalitako profilak ez du funtzionatzen: bidali profil berria erabiltzaileari. Autentifikatzailea eta saio-hasieren historia mantentzen dira."
   },
   "settings": {
     "title": "Ezarpenak",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Gorde web aplikazio bat VPN bezeroentzat",
     "restrict_apps_description": "Itsatsi sare hau aplikazioaren HTTP bideko \"Restrict access from\" eremuan. Orduan VPN honetako bezeroek bakarrik sartzen dira.",
     "go_to_http_routes": "Joan HTTP bideetara"
+  },
+  "sessions": {
+    "title": "Saioak",
+    "refresh": "Freskatu",
+    "no_sessions": "Ez dago bezerorik konektatuta",
+    "search": "Bilatu saioak",
+    "column_name": "Kontua",
+    "column_vpn_address": "VPN helbidea",
+    "column_real_address": "Helbide publikoa",
+    "column_since": "Konektatuta noiztik",
+    "column_traffic": "Jasota / bidalita",
+    "disconnect": "Deskonektatu"
   }
 }

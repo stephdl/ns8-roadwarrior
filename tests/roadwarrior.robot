@@ -115,6 +115,15 @@ Check if a disabled account cannot connect
     ${output} =    Connect client    laptop1
     Should Contain    ${output}    connected
 
+Check if a renewed certificate replaces the old profile
+    Execute Command    cp /root/rw-laptop1.ovpn /root/rw-laptop1-old.ovpn
+    Run module action    renew-account    {"name": "laptop1"}
+    Save profile    laptop1
+    ${output} =    Connect client    laptop1
+    Should Contain    ${output}    connected
+    ${output} =    Connect client    laptop1-old
+    Should Contain    ${output}    refused
+
 Check if a removed account cannot connect
     Run module action    remove-account    {"name": "laptop1"}
     ${output} =    Connect client    laptop1
@@ -192,10 +201,14 @@ Take screenshots
     Wait For Elements State    iframe >>> h2 >> text="Accounts"    visible    timeout=10s
     Sleep    5s
     Take Screenshot    filename=${OUTPUT DIR}/browser/screenshot/2._Accounts.png
+    Go To    https://${NODE_ADDR}/cluster-admin/#/apps/${module_id}?page=sessions
+    Wait For Elements State    iframe >>> h2 >> text="Sessions"    visible    timeout=10s
+    Sleep    5s
+    Take Screenshot    filename=${OUTPUT DIR}/browser/screenshot/3._Sessions.png
     Go To    https://${NODE_ADDR}/cluster-admin/#/apps/${module_id}?page=settings
     Wait For Elements State    iframe >>> h2 >> text="Settings"    visible    timeout=10s
     Sleep    5s
-    Take Screenshot    filename=${OUTPUT DIR}/browser/screenshot/3._Settings.png
+    Take Screenshot    filename=${OUTPUT DIR}/browser/screenshot/4._Settings.png
     Close Browser
 
 Check if roadwarrior is removed correctly

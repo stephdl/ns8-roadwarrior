@@ -24,7 +24,8 @@
     "reset-totp": "Repor o autenticador",
     "kill-session": "Desligar uma sessão",
     "disable-account": "Desativar uma conta",
-    "enable-account": "Ativar uma conta"
+    "enable-account": "Ativar uma conta",
+    "renew-account": "Renovar um certificado"
   },
   "error": {
     "error": "Erro",
@@ -63,17 +64,9 @@
     "running": "Em execução",
     "stopped": "Parado",
     "connected_clients": "Cliente ligado | Clientes ligados",
-    "go_to_accounts": "Ir para as contas",
-    "sessions": "Sessões ativas",
-    "no_sessions": "Nenhum cliente está ligado",
-    "search_sessions": "Pesquisar sessões",
-    "column_name": "Conta",
-    "column_vpn_address": "Endereço VPN",
-    "column_real_address": "Endereço público",
-    "column_since": "Ligado desde",
-    "column_traffic": "Recebido / enviado",
     "ca_expiry_title": "A autoridade de certificação da VPN expira em breve",
-    "ca_expiry_description": "Expira em {date}. Depois dessa data, nenhum cliente consegue ligar-se."
+    "ca_expiry_description": "Expira em {date}. Depois dessa data, nenhum cliente consegue ligar-se.",
+    "go_to_sessions": "Ir para as sessões"
   },
   "accounts": {
     "title": "Contas",
@@ -165,7 +158,10 @@
     "enable_title": "Ativar a conta {name}",
     "reason_account_disabled": "Conta desativada",
     "enabled": "Ativada",
-    "account_disabled": "Esta conta está desativada"
+    "account_disabled": "Esta conta está desativada",
+    "renew": "Renovar certificado",
+    "renew_title": "Renovar o certificado",
+    "renew_description": "{name} recebe um novo certificado e o atual é revogado. A sessão aberta é fechada e o perfil já enviado deixa de funcionar: envie o novo perfil ao utilizador. O autenticador e o histórico de acessos mantêm-se."
   },
   "settings": {
     "title": "Definições",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Reservar uma aplicação web aos clientes VPN",
     "restrict_apps_description": "Cole esta rede em \"Restrict access from\" na rota HTTP da aplicação. Só os clientes desta VPN lhe acedem então.",
     "go_to_http_routes": "Ir para as rotas HTTP"
+  },
+  "sessions": {
+    "title": "Sessões",
+    "refresh": "Atualizar",
+    "no_sessions": "Nenhum cliente está ligado",
+    "search": "Pesquisar sessões",
+    "column_name": "Conta",
+    "column_vpn_address": "Endereço VPN",
+    "column_real_address": "Endereço público",
+    "column_since": "Ligado desde",
+    "column_traffic": "Recebido / enviado",
+    "disconnect": "Desligar"
   }
 }

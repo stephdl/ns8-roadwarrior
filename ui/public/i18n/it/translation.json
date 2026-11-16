@@ -24,7 +24,8 @@
     "reset-totp": "Reimposta l'autenticatore",
     "kill-session": "Disconnetti una sessione",
     "disable-account": "Disabilita un account",
-    "enable-account": "Abilita un account"
+    "enable-account": "Abilita un account",
+    "renew-account": "Rinnova un certificato"
   },
   "error": {
     "error": "Errore",
@@ -63,17 +64,9 @@
     "running": "In esecuzione",
     "stopped": "Arrestato",
     "connected_clients": "Client connesso | Client connessi",
-    "go_to_accounts": "Vai agli account",
-    "sessions": "Sessioni attive",
-    "no_sessions": "Nessun client è connesso",
-    "search_sessions": "Cerca sessioni",
-    "column_name": "Account",
-    "column_vpn_address": "Indirizzo VPN",
-    "column_real_address": "Indirizzo pubblico",
-    "column_since": "Connesso dal",
-    "column_traffic": "Ricevuti / inviati",
     "ca_expiry_title": "La CA della VPN scade a breve",
-    "ca_expiry_description": "Scade il {date}. Dopo quella data nessun client può connettersi."
+    "ca_expiry_description": "Scade il {date}. Dopo quella data nessun client può connettersi.",
+    "go_to_sessions": "Vai alle sessioni"
   },
   "accounts": {
     "title": "Account",
@@ -165,7 +158,10 @@
     "enable_title": "Abilita l'account {name}",
     "reason_account_disabled": "Account disabilitato",
     "enabled": "Abilitato",
-    "account_disabled": "Questo account è disabilitato"
+    "account_disabled": "Questo account è disabilitato",
+    "renew": "Rinnova certificato",
+    "renew_title": "Rinnova il certificato",
+    "renew_description": "{name} riceve un nuovo certificato e quello attuale viene revocato. La sessione aperta viene chiusa e il profilo già inviato smette di funzionare: invia il nuovo profilo all'utente. L'autenticatore e la cronologia degli accessi restano."
   },
   "settings": {
     "title": "Impostazioni",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Riserva un'app web ai client VPN",
     "restrict_apps_description": "Incolla questa rete in \"Consenti l'accesso da\" della rotta HTTP dell'app. Solo i client di questa VPN la raggiungono allora.",
     "go_to_http_routes": "Vai alle rotte HTTP"
+  },
+  "sessions": {
+    "title": "Sessioni",
+    "refresh": "Aggiorna",
+    "no_sessions": "Nessun client è connesso",
+    "search": "Cerca sessioni",
+    "column_name": "Account",
+    "column_vpn_address": "Indirizzo VPN",
+    "column_real_address": "Indirizzo pubblico",
+    "column_since": "Connesso dal",
+    "column_traffic": "Ricevuti / inviati",
+    "disconnect": "Disconnetti"
   }
 }

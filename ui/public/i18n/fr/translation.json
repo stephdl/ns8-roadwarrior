@@ -24,7 +24,8 @@
     "reset-totp": "Réinitialiser l'authentificateur",
     "kill-session": "Déconnecter une session",
     "disable-account": "Désactiver un compte",
-    "enable-account": "Activer un compte"
+    "enable-account": "Activer un compte",
+    "renew-account": "Renouveler un certificat"
   },
   "error": {
     "error": "Erreur",
@@ -63,17 +64,9 @@
     "running": "En cours d'exécution",
     "stopped": "Arrêté",
     "connected_clients": "Client connecté | Clients connectés",
-    "go_to_accounts": "Aller aux comptes",
-    "sessions": "Sessions actives",
-    "no_sessions": "Aucun client n'est connecté",
-    "search_sessions": "Rechercher des sessions",
-    "column_name": "Compte",
-    "column_vpn_address": "Adresse VPN",
-    "column_real_address": "Adresse publique",
-    "column_since": "Connecté depuis",
-    "column_traffic": "Reçu / envoyé",
     "ca_expiry_title": "L'autorité de certification du VPN expire bientôt",
-    "ca_expiry_description": "Elle expire le {date}. Après cette date, aucun client ne peut se connecter."
+    "ca_expiry_description": "Elle expire le {date}. Après cette date, aucun client ne peut se connecter.",
+    "go_to_sessions": "Aller aux sessions"
   },
   "accounts": {
     "title": "Comptes",
@@ -165,7 +158,10 @@
     "enable_title": "Activer le compte {name}",
     "reason_account_disabled": "Compte désactivé",
     "enabled": "Activé",
-    "account_disabled": "Ce compte est désactivé"
+    "account_disabled": "Ce compte est désactivé",
+    "renew": "Renouveler le certificat",
+    "renew_title": "Renouveler le certificat",
+    "renew_description": "{name} reçoit un nouveau certificat et l'actuel est révoqué. La session ouverte est fermée et le profil déjà envoyé ne fonctionne plus : envoyez le nouveau profil à l'utilisateur. L'authentificateur et l'historique des connexions sont conservés."
   },
   "settings": {
     "title": "Paramètres",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Réserver une application web aux clients VPN",
     "restrict_apps_description": "Collez ce réseau dans « Restrict access from » de la route HTTP de l'application. Seuls les clients de ce VPN peuvent alors y accéder.",
     "go_to_http_routes": "Aller aux routes HTTP"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "refresh": "Actualiser",
+    "no_sessions": "Aucun client n'est connecté",
+    "search": "Rechercher des sessions",
+    "column_name": "Compte",
+    "column_vpn_address": "Adresse VPN",
+    "column_real_address": "Adresse publique",
+    "column_since": "Connecté depuis",
+    "column_traffic": "Reçu / envoyé",
+    "disconnect": "Déconnecter"
   }
 }

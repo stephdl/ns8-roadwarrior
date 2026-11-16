@@ -24,7 +24,8 @@
     "reset-totp": "Authenticator zurücksetzen",
     "kill-session": "Sitzung trennen",
     "disable-account": "Konto deaktivieren",
-    "enable-account": "Konto aktivieren"
+    "enable-account": "Konto aktivieren",
+    "renew-account": "Zertifikat erneuern"
   },
   "error": {
     "error": "Fehler",
@@ -63,17 +64,9 @@
     "running": "Läuft",
     "stopped": "Gestoppt",
     "connected_clients": "Verbundener Client | Verbundene Clients",
-    "go_to_accounts": "Zu den Konten",
-    "sessions": "Aktive Sitzungen",
-    "no_sessions": "Kein Client ist verbunden",
-    "search_sessions": "Sitzungen suchen",
-    "column_name": "Konto",
-    "column_vpn_address": "VPN-Adresse",
-    "column_real_address": "Öffentliche Adresse",
-    "column_since": "Verbunden seit",
-    "column_traffic": "Empfangen / gesendet",
     "ca_expiry_title": "Die VPN-Zertifizierungsstelle läuft bald ab",
-    "ca_expiry_description": "Sie läuft am {date} ab. Danach kann sich kein Client mehr verbinden."
+    "ca_expiry_description": "Sie läuft am {date} ab. Danach kann sich kein Client mehr verbinden.",
+    "go_to_sessions": "Zu den Sitzungen"
   },
   "accounts": {
     "title": "Konten",
@@ -165,7 +158,10 @@
     "enable_title": "Konto {name} aktivieren",
     "reason_account_disabled": "Konto deaktiviert",
     "enabled": "Aktiviert",
-    "account_disabled": "Dieses Konto ist deaktiviert"
+    "account_disabled": "Dieses Konto ist deaktiviert",
+    "renew": "Zertifikat erneuern",
+    "renew_title": "Zertifikat erneuern",
+    "renew_description": "{name} erhält ein neues Zertifikat und das aktuelle wird widerrufen. Die offene Sitzung wird beendet und das bereits gesendete Profil funktioniert nicht mehr: Senden Sie dem Benutzer das neue Profil. Authenticator und Anmeldeverlauf bleiben erhalten."
   },
   "settings": {
     "title": "Einstellungen",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Eine Web-App für die VPN-Clients vorbehalten",
     "restrict_apps_description": "Fügen Sie dieses Netzwerk in \"Anfragen erlauben von\" der HTTP-Route der App ein. Nur die Clients dieses VPN erreichen sie dann.",
     "go_to_http_routes": "Zu den HTTP-Routen"
+  },
+  "sessions": {
+    "title": "Sitzungen",
+    "refresh": "Aktualisieren",
+    "no_sessions": "Kein Client ist verbunden",
+    "search": "Sitzungen suchen",
+    "column_name": "Konto",
+    "column_vpn_address": "VPN-Adresse",
+    "column_real_address": "Öffentliche Adresse",
+    "column_since": "Verbunden seit",
+    "column_traffic": "Empfangen / gesendet",
+    "disconnect": "Trennen"
   }
 }

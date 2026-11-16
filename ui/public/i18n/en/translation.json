@@ -24,7 +24,8 @@
     "reset-totp": "Reset the authenticator",
     "kill-session": "Disconnect a session",
     "disable-account": "Disable an account",
-    "enable-account": "Enable an account"
+    "enable-account": "Enable an account",
+    "renew-account": "Renew a certificate"
   },
   "error": {
     "error": "Error",
@@ -63,17 +64,9 @@
     "running": "Running",
     "stopped": "Stopped",
     "connected_clients": "Connected client | Connected clients",
-    "go_to_accounts": "Go to accounts",
-    "sessions": "Active sessions",
-    "no_sessions": "No client is connected",
-    "search_sessions": "Search sessions",
-    "column_name": "Account",
-    "column_vpn_address": "VPN address",
-    "column_real_address": "Public address",
-    "column_since": "Connected since",
-    "column_traffic": "Received / sent",
     "ca_expiry_title": "The VPN certificate authority expires soon",
-    "ca_expiry_description": "It expires on {date}. After that date no client can connect."
+    "ca_expiry_description": "It expires on {date}. After that date no client can connect.",
+    "go_to_sessions": "Go to sessions"
   },
   "accounts": {
     "title": "Accounts",
@@ -165,7 +158,10 @@
     "enable_title": "Enable account {name}",
     "reason_account_disabled": "Account disabled",
     "enabled": "Enabled",
-    "account_disabled": "This account is disabled"
+    "account_disabled": "This account is disabled",
+    "renew": "Renew certificate",
+    "renew_title": "Renew the certificate",
+    "renew_description": "{name} gets a new certificate and the current one is revoked. The open session is closed and the profile already sent stops working: send the new profile to the user. The authenticator and the login history stay."
   },
   "settings": {
     "title": "Settings",
@@ -210,5 +206,17 @@
     "restrict_apps_title": "Keep a web app for the VPN clients",
     "restrict_apps_description": "Paste this network in \"Allow access from\" of the HTTP route of the app. Only the clients of this VPN reach it then.",
     "go_to_http_routes": "Go to HTTP routes"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "refresh": "Refresh",
+    "no_sessions": "No client is connected",
+    "search": "Search sessions",
+    "column_name": "Account",
+    "column_vpn_address": "VPN address",
+    "column_real_address": "Public address",
+    "column_since": "Connected since",
+    "column_traffic": "Received / sent",
+    "disconnect": "Disconnect"
   }
 }
