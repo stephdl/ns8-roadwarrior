@@ -9,19 +9,15 @@
 # account is refused here even with a valid certificate and no password check.
 # /run/ovpn/disabled.json lists the disabled accounts, written by the module.
 
-import json
 import os
 import subprocess
 import sys
 
-name = os.environ.get("common_name", "")
-try:
-    with open("/run/ovpn/disabled.json") as f:
-        disabled = {n.lower() for n in json.load(f)}
-except (FileNotFoundError, ValueError):
-    disabled = set()
+from ovpn_common import is_disabled
 
-if name.lower() in disabled:
+name = os.environ.get("common_name", "")
+
+if is_disabled(name):
     print(f"ovpn-connect: account {name!r} is disabled", file=sys.stderr, flush=True)
     subprocess.run(["/usr/local/bin/ovpn-history", "refused", name, "account_disabled"], check=False)
     sys.exit(1)

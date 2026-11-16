@@ -26,6 +26,8 @@ import sys
 import time
 
 import ldap3
+
+from ovpn_common import is_disabled
 from ldap3.utils.conv import escape_filter_chars
 
 TOTP_STEP = 30
@@ -145,12 +147,10 @@ def check(username, password, common_name):
         raise Refused("certificate_mismatch", f"user {username!r} does not match certificate {common_name!r}")
     username = common_name
 
-    try:
-        with open("/run/ovpn/disabled.json") as f:
-            if username.lower() in {n.lower() for n in json.load(f)}:
-                raise Refused("account_disabled", f"user {username!r}: account disabled")
-    except (FileNotFoundError, ValueError):
-        pass
+    # ovpn-connect refuses it too, but only after this check: stop before the LDAP bind,
+    # or the user domain counts a bad password for a disabled account
+    if is_disabled(username):
+        raise Refused("account_disabled", f"user {username!r}: account disabled")
 
     with open("/run/ovpn/auth.json") as f:
         conf = json.load(f)
