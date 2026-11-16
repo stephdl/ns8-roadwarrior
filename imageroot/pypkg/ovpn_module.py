@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -147,7 +148,12 @@ def write_runtime(rdb=None):
     node_id = os.environ["NODE_ID"]
     net, server_ip = network_parts(conf["OVPN_NETWORK"])
     samba = samba_on_node(rdb, node_id) if is_true(conf["OVPN_EXPOSE_SAMBA"]) else None
-    hosts = traefik_hosts(rdb, node_id)
+    # The node name serves cluster-admin and path routes: it must enter the tunnel too.
+    # The VPN host stays out, or a reconnect would look for the server inside the tunnel.
+    vpn_host = conf["OVPN_HOST"].lower()
+    hosts = sorted(
+        {h.lower() for h in traefik_hosts(rdb, node_id) + [socket.getfqdn()] if "." in h} - {vpn_host}
+    )
 
     push_routes = []
     # Parent domains, not host names: a new app of the same domain needs no new push to the clients

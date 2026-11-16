@@ -35,6 +35,11 @@ push \"dns server 0 address ${OVPN_SERVER_IP}\""
     if [ -n "${DNS_DOMAINS}" ]; then
         dns_lines="${dns_lines}
 push \"dns server 0 resolve-domains ${DNS_DOMAINS}\""
+        # NetworkManager and Windows route these domains to the VPN resolver
+        for domain in ${DNS_DOMAINS}; do
+            dns_lines="${dns_lines}
+push \"dhcp-option DOMAIN ${domain}\""
+        done
     fi
     cat > /etc/openvpn/server.conf <<EOF
 dev ${OVPN_TUN}
