@@ -21,22 +21,33 @@ export default {
       failed,
     }) {
       const eventId = this.getUuid();
-      this.core.$root.$once(
-        `${action}-aborted-${eventId}`,
-        (taskResult, taskContext) => {
-          console.error(`${taskContext.action} aborted`, taskResult);
-          aborted(this.$t("error.generic_error"));
-        }
-      );
-      this.core.$root.$once(
-        `${action}-completed-${eventId}`,
-        (taskContext, taskResult) => completed(taskResult.output)
+      const root = this.core.$root;
+      const events = {
+        aborted: `${action}-aborted-${eventId}`,
+        completed: `${action}-completed-${eventId}`,
+        validationFailed: `${action}-validation-failed-${eventId}`,
+      };
+      // Only one of these events fires: drop the others, or they stay on the shell root
+      // and keep this component alive after it is destroyed
+      const handlers = {};
+      const once = (event, handler) => {
+        handlers[event] = (...args) => {
+          for (const name of Object.keys(handlers)) {
+            root.$off(events[name], handlers[name]);
+          }
+          handler(...args);
+        };
+        root.$on(events[event], handlers[event]);
+      };
+      once("aborted", (taskResult, taskContext) => {
+        console.error(`${taskContext.action} aborted`, taskResult);
+        aborted(this.$t("error.generic_error"));
+      });
+      once("completed", (taskContext, taskResult) =>
+        completed(taskResult.output)
       );
       if (validationFailed) {
-        this.core.$root.$once(
-          `${action}-validation-failed-${eventId}`,
-          validationFailed
-        );
+        once("validationFailed", validationFailed);
       }
       const extra = {
         title: title || this.$t("action." + action),
