@@ -9,6 +9,7 @@
 #   ovpn-pki init                  create the CA and the server keys once
 #   ovpn-pki add NAME              issue a client certificate
 #   ovpn-pki revoke NAME           revoke it and publish the new CRL
+#   ovpn-pki renew NAME            revoke the certificate of NAME and issue a new one
 #   ovpn-pki profile NAME          print the client profile
 #   ovpn-pki list                  print "name status expiry" for every client certificate
 #   ovpn-pki ca-expiry             print the CA expiry date
@@ -58,6 +59,12 @@ revoke)
     "${easyrsa}" gen-crl >&2
     # The serial stays in the CRL: freeing the name lets the account come back with a new certificate
     rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
+    ;;
+renew)
+    name=${2:?name}
+    # Same account, new key: the old profile is refused from now on
+    "$0" revoke "${name}"
+    "$0" add "${name}"
     ;;
 profile)
     name=${2:?name}
