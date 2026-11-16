@@ -105,6 +105,7 @@
     "session_summary": "{duration}, received {received}, sent {sent}",
     "reason_wrong_password": "Wrong password",
     "reason_wrong_code": "Wrong or missing authenticator code",
+    "reason_challenge_expired": "Authenticator prompt expired or already used",
     "reason_code_reused": "Authenticator code already used",
     "reason_totp_not_enrolled": "No authenticator set up",
     "reason_certificate_mismatch": "User name does not match the certificate",

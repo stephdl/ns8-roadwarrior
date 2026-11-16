@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import struct
 import subprocess
 import sys
@@ -32,6 +33,10 @@ TOTP_STEP = 30
 TOTP_WINDOW = 1
 # Last code step used by each user: a code works once
 TOTP_USED = "/etc/openvpn/totp-used.json"
+# Pending dynamic challenges: the password passed, the code is still to come
+CHALLENGES = "/etc/openvpn/run/challenges.json"
+CHALLENGE_TTL = 180
+CHALLENGE_TEXT = "Authenticator code"
 
 
 class Refused(Exception):
@@ -71,10 +76,49 @@ def consume_totp(username, counter):
         if counter <= used.get(username, -1):
             raise Refused("code_reused", f"user {username!r}: authenticator code already used")
         used[username] = counter
-        tmp = TOTP_USED + ".tmp"
-        with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
-            json.dump(used, f)
-        os.replace(tmp, TOTP_USED)
+        write_private(TOTP_USED, used)
+
+
+def write_private(path, data):
+    tmp = path + ".tmp"
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def update_challenges(change):
+    """Run change(pending) under a lock, drop the expired entries and save"""
+    with open(CHALLENGES + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(CHALLENGES) as f:
+                pending = json.load(f)
+        except (FileNotFoundError, ValueError):
+            pending = {}
+        now = time.time()
+        pending = {k: v for k, v in pending.items() if now - v["time"] < CHALLENGE_TTL}
+        result = change(pending)
+        write_private(CHALLENGES, pending)
+        return result
+
+
+def new_challenge(username):
+    state_id = secrets.token_urlsafe(24)
+    update_challenges(lambda pending: pending.update({state_id: {"name": username, "time": time.time()}}))
+    user64 = base64.b64encode(username.encode()).decode()
+    # R: the client must answer, E: the answer may show while typing
+    return f"CRV1:R,E:{state_id}:{user64}:{CHALLENGE_TEXT}"
+
+
+def take_challenge(state_id, username):
+    # The entry goes away at once: a wrong code sends the user back to the password.
+    # Only its owner can spend it, so another user cannot cancel someone else's login.
+    def take(pending):
+        if pending.get(state_id, {}).get("name") != username:
+            return False
+        del pending[state_id]
+        return True
+    return update_challenges(take)
 
 
 def ldap_ok(conf, username, password):
@@ -109,9 +153,22 @@ def check(username, password, common_name):
     except FileNotFoundError:
         totp = {}
 
+    # Second step of the dynamic challenge: CRV1::<state>::<code>
+    if password.startswith("CRV1::"):
+        state_id, _, code = password[len("CRV1::"):].partition("::")
+        if not take_challenge(state_id, username):
+            raise Refused("challenge_expired", f"user {username!r}: unknown or expired challenge")
+        counter = totp_counter(totp["secret"], code.strip()) if totp.get("confirmed") else None
+        if counter is None:
+            raise Refused("wrong_code", f"user {username!r}: wrong authenticator code")
+        consume_totp(username, counter)
+        log(f"user {username!r} accepted")
+        return None
+
+    # Profiles made before the dynamic challenge send SCRV1:<base64 password>:<base64 code>
+    static = password.startswith("SCRV1:")
     code = ""
-    # With static-challenge the client sends SCRV1:<base64 password>:<base64 code>
-    if password.startswith("SCRV1:"):
+    if static:
         try:
             _, b64pass, b64code = password.split(":", 2)
             password = base64.b64decode(b64pass).decode()
@@ -121,25 +178,30 @@ def check(username, password, common_name):
 
     counter = None
     if totp.get("confirmed"):
-        counter = totp_counter(totp["secret"], code)
-        if counter is None:
-            raise Refused("wrong_code", f"user {username!r}: wrong or missing authenticator code")
+        if static:
+            counter = totp_counter(totp["secret"], code)
+            if counter is None:
+                raise Refused("wrong_code", f"user {username!r}: wrong or missing authenticator code")
     elif conf.get("totp_required"):
         raise Refused("totp_not_enrolled", f"user {username!r}: authenticator required but not enrolled")
 
     if not password or not ldap_ok(conf, username, password):
         raise Refused("wrong_password", f"user {username!r}: wrong password")
+    if totp.get("confirmed") and not static:
+        log(f"user {username!r}: password accepted, asking for the authenticator code")
+        return new_challenge(username)
     # Spend the code last: a wrong password must not burn it
     if counter is not None:
         consume_totp(username, counter)
     log(f"user {username!r} accepted")
+    return None
 
 
 def run_check(username, password, common_name):
-    """Return True if the client may log in, and record a refusal in the history"""
+    """Return (accepted, challenge) and record a refusal in the history"""
     try:
-        check(username, password, common_name)
-        return True
+        challenge = check(username, password, common_name)
+        return challenge is None, challenge
     except Refused as exc:
         log(str(exc))
         reason = exc.reason
@@ -151,7 +213,7 @@ def run_check(username, password, common_name):
         subprocess.run(["/usr/local/bin/ovpn-history", "refused", common_name, reason], check=False)
     except OSError as exc:
         log(f"cannot record the refused login: {exc}")
-    return False
+    return False, None
 
 
 def totp_check():
@@ -177,7 +239,11 @@ def main():
 
     control_file = os.environ.get("auth_control_file")
     if not control_file:
-        sys.exit(0 if run_check(username, password, common_name) else 1)
+        # The challenge needs auth_failed_reason_file, which only deferred auth provides
+        accepted, challenge = run_check(username, password, common_name)
+        if challenge:
+            log(f"user {common_name!r}: no deferred auth, cannot ask for the authenticator code")
+        sys.exit(0 if accepted else 1)
 
     if os.fork() > 0:
         # Exit code 2: the result comes later through auth_control_file
@@ -185,7 +251,15 @@ def main():
     os.setsid()
     result = "0"
     try:
-        result = "1" if run_check(username, password, common_name) else "0"
+        accepted, challenge = run_check(username, password, common_name)
+        reason_file = os.environ.get("auth_failed_reason_file")
+        if challenge and reason_file:
+            # OpenVPN reads the reason when the control file says 0: write it first
+            with open(reason_file, "w") as f:
+                f.write(challenge)
+        elif challenge:
+            log(f"user {common_name!r}: no auth_failed_reason_file, cannot ask for the authenticator code")
+        result = "1" if accepted else "0"
     finally:
         # Always answer, or the client waits until the handshake times out
         with open(control_file, "w") as f:

@@ -77,8 +77,9 @@ EOF
     if [ "${AUTH_MODE}" = "certificate_password" ]; then
         echo "auth-user-pass"
         echo "auth-nocache"
-        # Always ask: an authenticator set up later must not break the profiles already sent
-        echo 'static-challenge "Authenticator code (leave empty if you have none)" 1'
+        # The server asks the authenticator code after the password (dynamic challenge).
+        # The command line client answers it only with interact, graphical clients always do.
+        echo "auth-retry interact"
     fi
     echo "<ca>"
     pem "${pki}/ca.crt"
