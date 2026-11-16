@@ -68,6 +68,23 @@ In certificate mode the profile alone gives access. Send it through a safe chann
 
 The UI encrypts the profile and the authenticator secret for the browser: the core keeps task output in Redis for hours, and only ciphertext lands there. Called from `api-cli` without `public_key`, the actions return plain text.
 
+## Clients
+
+Import the `.ovpn` file in an OpenVPN client:
+
+- Windows, macOS, iOS, Android: OpenVPN Connect, https://openvpn.net/client/
+- Windows: OpenVPN GUI from OpenVPN community, https://openvpn.net/community-downloads/
+- macOS: Tunnelblick, https://tunnelblick.net/
+- Linux: NetworkManager with the OpenVPN plugin, or the `openvpn` command
+
+The server needs OpenVPN 2.6 features for split DNS. Older clients still connect but may not use the VPN resolver.
+
+In password mode the profile uses the OpenVPN `static-challenge` option. The client asks for the password, then shows a second field for the authenticator code. The user types the domain password in the first field and the 6 digits in the second one, or leaves it empty without an authenticator. The code is never appended to the password.
+
+A client that ignores `static-challenge` sends only the password. Accounts with an authenticator cannot log in from such a client.
+
+The module was tested with the `openvpn` 2.6 command line client.
+
 ## Authenticator (TOTP)
 
     api-cli run enroll-totp --agent module/roadwarrior1 --data '{"name": "john"}'
