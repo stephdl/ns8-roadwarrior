@@ -21,26 +21,28 @@
     </cv-row>
     <cv-row v-if="configured">
       <cv-column>
-        <NsInlineNotification
-          kind="info"
-          :title="$t('settings.restrict_apps_title')"
-          :description="$t('settings.restrict_apps_description')"
-          :actionLabel="$t('settings.go_to_http_routes')"
-          @action="goToHttpRoutes"
-          :showCloseButton="false"
-          class="maxwidth"
-        />
-        <NsCodeSnippet
-          :copyTooltip="core.$t('common.copy_to_clipboard')"
-          :copy-feedback="core.$t('common.copied_to_clipboard')"
-          :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-          :wrap-text="true"
-          :moreText="core.$t('common.show_more')"
-          :lessText="core.$t('common.show_less')"
-          hideExpandButton
-          class="mg-bottom-md maxwidth"
-          >{{ ipAllowlist }}</NsCodeSnippet
-        >
+        <cv-tile light>
+          <NsInlineNotification
+            kind="info"
+            :title="$t('settings.restrict_apps_title')"
+            :description="$t('settings.restrict_apps_description')"
+            :actionLabel="$t('settings.go_to_http_routes')"
+            @action="goToHttpRoutes"
+            :showCloseButton="false"
+            class="mg-bottom-sm maxwidth"
+          />
+          <NsCodeSnippet
+            :copyTooltip="core.$t('common.copy_to_clipboard')"
+            :copy-feedback="core.$t('common.copied_to_clipboard')"
+            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
+            :wrap-text="true"
+            :moreText="core.$t('common.show_more')"
+            :lessText="core.$t('common.show_less')"
+            hideExpandButton
+            class="maxwidth"
+            >{{ ipAllowlist }}</NsCodeSnippet
+          >
+        </cv-tile>
       </cv-column>
     </cv-row>
     <cv-row>
