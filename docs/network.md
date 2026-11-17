@@ -212,7 +212,7 @@ In this example the VPN runs on node 1 with the network `10.8.0.0/24`, and the a
 ```mermaid
 flowchart LR
     vpn["VPN client<br/>source 10.8.0.2"]
-    out["anyone on the Internet<br/>source 203.0.113.9"]
+    out["someone without the VPN<br/>source 203.0.113.9"]
 
     subgraph n1["node 1, runs the VPN<br/>public DNS of app.example.org"]
         r1{"Traefik route app.example.org<br/>Let's Encrypt certificate<br/>allow 10.8.0.0/24"}
