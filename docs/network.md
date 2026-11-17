@@ -186,7 +186,7 @@ If the name still gives the public address, flush the DNS cache of the client (`
 
 ## Several nodes
 
-Each node that runs apps for the VPN clients needs its own instance, with its own network and port. A user gets one profile per node.
+Each node that runs apps for the VPN clients needs its own instance, with its own network and port. A user gets one profile per node. For a web app, [a relay route](#a-web-app-of-another-node) avoids the second instance.
 
 ```mermaid
 flowchart LR
@@ -202,6 +202,81 @@ flowchart LR
     user -- "profile 1" --> rw1 --> a1
     user -- "profile 2" --> rw2 --> a2
 ```
+
+## A web app of another node
+
+The VPN reaches only the node that runs it. A web app of another node can still be kept for the VPN clients: the Traefik of the VPN node relays it to the other node through the cluster VPN. Nothing changes in the core or in the firewall, it takes two HTTP routes.
+
+In this example the VPN runs on node 1 with the network `10.8.0.0/24`, and the app `app.example.org` runs on node 2. The cluster VPN gives node 1 the address `10.5.5.1` and node 2 the address `10.5.5.2`.
+
+```mermaid
+flowchart LR
+    vpn["VPN client<br/>source 10.8.0.2"]
+    out["anyone on the Internet<br/>source 203.0.113.9"]
+
+    subgraph n1["node 1, runs the VPN<br/>public DNS of app.example.org"]
+        r1{"Traefik route app.example.org<br/>Let's Encrypt certificate<br/>allow 10.8.0.0/24"}
+    end
+
+    subgraph n2["node 2, runs the app"]
+        r2{"Traefik route app.example.org<br/>allow 10.5.5.1/32"}
+        app["web app"]
+    end
+
+    deny["403"]
+
+    vpn -- "name resolves to 10.8.0.1" --> r1
+    out -- "name resolves to node 1" --> r1
+    out -. "goes to node 2 directly" .-> r2
+    r1 -- "10.8.0.2 allowed<br/>relay to https://10.5.5.2<br/>through the cluster VPN" --> r2
+    r1 -- "not in the list" --> deny
+    r2 -- "10.5.5.1 allowed" --> app
+    r2 -- "any other source" --> deny
+```
+
+The steps:
+
+1. Point the public DNS name of the app to node 1. Node 1 then gets the Let's Encrypt certificate, and the client sees a valid certificate.
+2. On node 1, add an HTTP route for the name of the app. Its URL is the cluster VPN address of node 2, with "Skip certificate validation", because node 1 connects to an address and not to the name. Restrict it to the VPN network of the instance.
+3. On node 2, restrict the route of the app to the cluster VPN address of node 1. Without this restriction, anyone who reaches node 2 can ask for the app with the right name and go around the VPN.
+
+The routes from the command line, on the leader:
+
+```bash
+redis-cli get cluster/network      # the cluster VPN network, here 10.5.5.0/24
+
+api-cli run set-route --agent module/traefik1 --data '{
+  "instance": "relay-app",
+  "host": "app.example.org",
+  "url": "https://10.5.5.2",
+  "skip_cert_verify": true,
+  "lets_encrypt": true,
+  "http2https": true,
+  "ip_allowlist": ["10.8.0.0/24"]
+}'
+
+api-cli run set-route --agent module/traefik2 --data '{
+  "instance": "app1",
+  "host": "app.example.org",
+  "url": "http://127.0.0.1:20007",
+  "lets_encrypt": false,
+  "http2https": true,
+  "ip_allowlist": ["10.5.5.1/32"]
+}'
+```
+
+The second command rewrites the existing route of the app: read it first with `get-route` and keep its URL. The same settings exist in the HTTP routes page of the cluster admin.
+
+The VPN DNS needs no change. The relay route is a route of node 1, so the dnsmasq of the instance answers its name with `10.8.0.1`, and the traffic enters the tunnel.
+
+Things to know:
+
+- Node 2 sees `10.5.5.1`, not the client. Its logs cannot tell which VPN client came in; the login history of the instance can.
+- The allowlist of node 2 accepts everything that leaves node 1, not only the VPN clients.
+- Only HTTP and HTTPS go through. IMAP, SMB or SSH of node 2 stay out of reach.
+- Some apps write their own route when they are configured again. Check the allowlist of node 2 after a change in the app settings.
+- The allowlist of node 1 does not stop Let's Encrypt: Traefik answers the TLS-ALPN challenge on port 443 before any HTTP route.
+- If the public DNS name moves back to node 2, the certificate of node 1 cannot renew.
 
 ## Clone and move
 

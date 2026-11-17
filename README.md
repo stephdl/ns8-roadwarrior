@@ -137,6 +137,8 @@ The host of the VPN server is never answered with the VPN address, so a client c
 
 See [Use the VPN](docs/network.md#use-the-vpn) to check that the traffic of a client goes through the tunnel.
 
+A web app of another node of the cluster can be kept for the VPN clients with two HTTP routes, see [A web app of another node](docs/network.md#a-web-app-of-another-node).
+
 ## Status
 
 `get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The Sessions page lists the open sessions, refreshes every 30 seconds and can disconnect one.
