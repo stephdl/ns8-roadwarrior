@@ -52,9 +52,7 @@ SETTINGS_DEFAULTS = {
 SAMBA_PORTS = [
     "53/tcp", "53/udp", "88/tcp", "88/udp", "135/tcp", "137/udp", "138/udp", "139/tcp",
     "389/tcp", "389/udp", "445/tcp", "464/tcp", "464/udp", "636/tcp", "3268/tcp", "3269/tcp",
-    "49152-65535/tcp",
-    # Kerberos fails when the clock of a Windows client drifts: it syncs from the domain controller
-    "123/udp",
+    "49152-65535/tcp", "123/udp",
 ]
 # Traefik for the web apps, the VPN resolver for the names
 BASE_PORTS = ["80/tcp", "443/tcp", "53/tcp", "53/udp"]
