@@ -255,17 +255,15 @@ api-cli run set-route --agent module/traefik1 --data '{
   "ip_allowlist": ["10.8.0.0/24"]
 }'
 
+api-cli run list-routes --agent module/traefik2    # find the route of the app, often its module id
+
 api-cli run set-route --agent module/traefik2 --data '{
-  "instance": "app1",
-  "host": "app.example.org",
-  "url": "http://127.0.0.1:20007",
-  "lets_encrypt": false,
-  "http2https": true,
+  "instance": "<route of the app>",
   "ip_allowlist": ["10.5.5.1/32"]
 }'
 ```
 
-The second command rewrites the existing route of the app: read it first with `get-route` and keep its URL. The same settings exist in the HTTP routes page of the cluster admin.
+`set-route` merges the request into the existing route, so the other settings of the app route stay as they are. The same settings exist in the HTTP routes page of the cluster admin.
 
 The VPN DNS needs no change. The relay route is a route of node 1, so the dnsmasq of the instance answers its name with `10.8.0.1`, and the traffic enters the tunnel.
 
@@ -274,7 +272,7 @@ Things to know:
 - Node 2 sees `10.5.5.1`, not the client. Its logs cannot tell which VPN client came in; the login history of the instance can.
 - The allowlist of node 2 accepts everything that leaves node 1, not only the VPN clients.
 - Only HTTP and HTTPS go through. IMAP, SMB or SSH of node 2 stay out of reach.
-- Some apps write their own route when they are configured again. Check the allowlist of node 2 after a change in the app settings.
+- An app that sets its own allowlist when it is configured again replaces this one. Check the allowlist of node 2 after a change in the app settings.
 - The allowlist of node 1 does not stop Let's Encrypt: Traefik answers the TLS-ALPN challenge on port 443 before any HTTP route.
 - If the public DNS name moves back to node 2, the certificate of node 1 cannot renew.
 
