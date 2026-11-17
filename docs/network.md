@@ -156,6 +156,14 @@ The host of the VPN server is left out on purpose. A client that keeps the VPN r
 
 When an HTTP route is added or removed, the `hosts-changed` event rewrites the dnsmasq list.
 
+## Windows clients in the domain
+
+With `expose_samba` on, the VPN opens the ports of the domain controller, NTP included, and the realm resolves through the tunnel.
+
+- A computer already joined to the domain opens the session with its cached credentials, then the user connects the VPN. Kerberos, the shares and the group policies work from there, the policies at their next refresh.
+- A network logon before the session, for a new user or an expired password, needs the VPN up before Windows asks for the password. Only the `certificate` mode allows it, with the profile started by the OpenVPN service: the password and TOTP checks are lost.
+- Joining a computer to the domain through the VPN is not tested.
+
 ## Use the VPN
 
 The profile holds no DNS setting: the server pushes it at each connection. What the client does with it depends on the client.
