@@ -19,6 +19,32 @@
         />
       </cv-column>
     </cv-row>
+    <cv-row v-if="configured">
+      <cv-column>
+        <cv-tile light>
+          <NsInlineNotification
+            kind="info"
+            :title="$t('settings.restrict_apps_title')"
+            :description="$t('settings.restrict_apps_description')"
+            :actionLabel="$t('settings.go_to_http_routes')"
+            @action="goToHttpRoutes"
+            :showCloseButton="false"
+            class="mg-bottom-sm maxwidth"
+          />
+          <NsCodeSnippet
+            :copyTooltip="core.$t('common.copy_to_clipboard')"
+            :copy-feedback="core.$t('common.copied_to_clipboard')"
+            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
+            :wrap-text="true"
+            :moreText="core.$t('common.show_more')"
+            :lessText="core.$t('common.show_less')"
+            hideExpandButton
+            class="maxwidth"
+            >{{ ipAllowlist }}</NsCodeSnippet
+          >
+        </cv-tile>
+      </cv-column>
+    </cv-row>
     <cv-row>
       <cv-column>
         <cv-tile light>
@@ -166,30 +192,6 @@
               >{{ $t("settings.save") }}</NsButton
             >
           </cv-form>
-        </cv-tile>
-      </cv-column>
-    </cv-row>
-    <cv-row v-if="configured">
-      <cv-column>
-        <cv-tile light>
-          <h4 class="mg-bottom-sm">{{ $t("settings.restrict_apps_title") }}</h4>
-          <p class="mg-bottom-sm maxwidth">
-            {{ $t("settings.restrict_apps_description") }}
-          </p>
-          <NsCodeSnippet
-            :copyTooltip="core.$t('common.copy_to_clipboard')"
-            :copy-feedback="core.$t('common.copied_to_clipboard')"
-            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-            :wrap-text="true"
-            :moreText="core.$t('common.show_more')"
-            :lessText="core.$t('common.show_less')"
-            hideExpandButton
-            class="mg-bottom-sm maxwidth"
-            >{{ ipAllowlist }}</NsCodeSnippet
-          >
-          <cv-link @click="goToHttpRoutes">
-            {{ $t("settings.go_to_http_routes") }}
-          </cv-link>
         </cv-tile>
       </cv-column>
     </cv-row>
