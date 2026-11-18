@@ -71,7 +71,8 @@ Server is running
 
 OpenVPN runs as its own user
     ${uid} =    Execute Command    id -u ovpn-${module_id}
-    ${output} =    Execute Command    ps -o uid= -C openvpn
+    # The container main process is openvpn: the node may run other openvpn processes
+    ${output} =    Execute Command    ps -o uid= -p "$(podman inspect -f '{{.State.Pid}}' ${module_id}-openvpn-server)"
     Should Be Equal As Strings    ${output.strip()}    ${uid.strip()}
 
 Module environment
