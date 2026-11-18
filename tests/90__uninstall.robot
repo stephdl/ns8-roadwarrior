@@ -13,6 +13,12 @@ Check if roadwarrior is removed correctly
     Should Not Be Equal As Integers    ${rc}  0
     ${output} =    Execute Command    firewall-cmd --get-zones
     Should Not Contain    ${output}    ${tun}
+    ${rc} =    Execute Command    id ovpn-${module_id}
+    ...    return_rc=True  return_stdout=False
+    Should Not Be Equal As Integers    ${rc}  0
+    ${rc} =    Execute Command    test -e /etc/systemd/system/${module_id}-openvpn-server.service
+    ...    return_rc=True  return_stdout=False
+    Should Not Be Equal As Integers    ${rc}  0
     ${rc} =    Execute Command    remove-module --no-preserve ${ldap_id}
     ...    return_rc=True  return_stdout=False
     Should Be Equal As Integers    ${rc}  0

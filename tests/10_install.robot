@@ -26,8 +26,13 @@ Check if invalid settings are refused
 Check if roadwarrior can be configured with certificates only
     ${config} =    Configuration    certificate
     Run module action    configure-module    ${config}
-    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-server openvpn-dns
+    ${output} =    Execute Command    systemctl is-active ${module_id}-openvpn-server ${module_id}-openvpn-dns
     Should Be Equal    ${output}    active\nactive
+    Wait Until Keyword Succeeds    10s    1s    OpenVPN runs as its own user
+    ${output} =    Execute Command    podman inspect --format '{{.EffectiveCaps}}' ${module_id}-openvpn-server
+    Should Be Equal    ${output}    [CAP_NET_ADMIN CAP_SETGID CAP_SETUID]
+    ${output} =    Execute Command    podman inspect --format '{{.EffectiveCaps}}' ${module_id}-openvpn-dns
+    Should Be Equal    ${output}    [CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID]
     ${output} =    Execute Command    ip -4 -o addr show ${tun}
     Should Contain    ${output}    10.66.0.1/24
     ${rc} =    Execute Command    firewall-cmd --info-service=${module_id} | grep -q 11950/udp
