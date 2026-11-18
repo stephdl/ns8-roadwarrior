@@ -17,7 +17,7 @@ set -e
 case "$1" in
 openvpn)
     ovpn-pki init
-    # Root without DAC_OVERRIDE: the dirs on the path to crl.pem must stay readable after the drop
+    # Root without DAC_OVERRIDE: the dirs on the path to crl-pub.pem must stay readable after the drop
     chmod 0755 /etc/openvpn/pki
     mkdir -p -m 0755 /etc/openvpn/run
     if [ "${AUTH_MODE}" = "certificate_password" ]; then
@@ -70,7 +70,7 @@ cert /etc/openvpn/pki/issued/server.crt
 key /etc/openvpn/pki/private/server.key
 dh none
 tls-crypt /etc/openvpn/pki/tls-crypt.key
-crl-verify /etc/openvpn/pki/crl.pem
+crl-verify /etc/openvpn/pki/crl-pub.pem
 remote-cert-tls client
 data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305
 ${auth_lines}

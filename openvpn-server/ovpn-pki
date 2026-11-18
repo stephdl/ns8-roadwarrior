@@ -33,6 +33,13 @@ pem() {
     openssl x509 -in "$1" -outform PEM
 }
 
+# easyrsa writes crl.pem 0600, and OpenVPN reads the CRL for each client after dropping root.
+# It reads a readable copy, swapped in one rename: a client never meets a missing or locked file.
+publish_crl() {
+    install -m 0644 "${pki}/crl.pem" "${pki}/crl-pub.pem.tmp"
+    mv -f "${pki}/crl-pub.pem.tmp" "${pki}/crl-pub.pem"
+}
+
 case "$1" in
 init)
     if [ ! -f "${pki}/ca.crt" ]; then
@@ -40,10 +47,11 @@ init)
         EASYRSA_REQ_CN="${OVPN_CA_CN:-NS8 OpenVPN CA}" "${easyrsa}" build-ca nopass >&2
         "${easyrsa}" build-server-full server nopass >&2
         "${easyrsa}" gen-crl >&2
-        chmod 0644 "${pki}/crl.pem"
         openvpn --genkey secret "${pki}/tls-crypt.key"
         openvpn --genkey auth-token "${pki}/auth-token.key"
     fi
+    # Every start: a volume restored or made before the copy existed gets it too
+    publish_crl
     ;;
 add)
     name=${2:?name}
@@ -58,8 +66,7 @@ revoke)
     name=${2:?name}
     "${easyrsa}" revoke "${name}" >&2
     "${easyrsa}" gen-crl >&2
-    # easyrsa writes it 0600, and OpenVPN reads it for each client after dropping root
-    chmod 0644 "${pki}/crl.pem"
+    publish_crl
     # The serial stays in the CRL: freeing the name lets the account come back with a new certificate
     rm -f "${pki}/reqs/${name}.req" "${pki}/issued/${name}.crt" "${pki}/private/${name}.key"
     ;;
