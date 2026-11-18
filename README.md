@@ -6,7 +6,7 @@ Remote users connect to one node. They reach the web apps of that node through T
 
 See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
 
-The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
+The module is rootful: OpenVPN creates its tun device, then drops root to the host user `ovpn-<module_id>`. The core creates the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
 
 The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
 
