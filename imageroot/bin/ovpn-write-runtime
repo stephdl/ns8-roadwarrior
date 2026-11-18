@@ -33,13 +33,19 @@ volume = subprocess.run(["podman", "volume", "inspect", f"{os.environ['MODULE_ID
 # Config and PKI stay root: the user must not change what the next root start reads
 os.chown(volume, 0, 0)
 os.chmod(volume, 0o755)
-# Mutable login state: written by the login scripts after the drop
+# Mutable login state: written by the login scripts after the drop.
+# The user can change what is inside db/, so never follow a link or go down a directory there:
+# a link swapped in would make root give the user any file of the host.
 db = os.path.join(volume, "db")
 os.makedirs(db, exist_ok=True)
-for root, dirs, files in os.walk(db):
-    for path in [root] + [os.path.join(root, f) for f in files]:
-        os.lchown(path, uid, gid)
-os.chmod(db, 0o700)
+dfd = os.open(db, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    os.fchown(dfd, uid, gid)
+    os.fchmod(dfd, 0o700)
+    for entry in os.scandir(dfd):
+        os.chown(entry.name, uid, gid, dir_fd=dfd, follow_symlinks=False)
+finally:
+    os.close(dfd)
 # Created by root before the drop, read by the login scripts: token-cutoff.json, status.log
 run = os.path.join(volume, "run")
 os.makedirs(run, exist_ok=True)
