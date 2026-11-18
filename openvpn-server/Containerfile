@@ -9,8 +9,12 @@ RUN apk add --no-cache \
         easy-rsa \
         dnsmasq \
         python3 \
-        py3-ldap3
+        py3-ldap3 \
+        py3-ldap3-pyc
 COPY entrypoint.sh /entrypoint.sh
 COPY ovpn-auth ovpn-pki ovpn-mgmt ovpn-history ovpn-connect ovpn_common.py /usr/local/bin/
+# The root filesystem is read-only at run time: compile now, or every login hook recompiles
+RUN python3 -m compileall -q /usr/local/bin/ovpn_common.py
+ENV PYTHONDONTWRITEBYTECODE=1
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["openvpn"]

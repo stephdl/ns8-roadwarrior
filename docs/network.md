@@ -12,12 +12,12 @@ flowchart LR
         direction TB
         nic["public interface<br/>UDP port of the instance"]
 
-        subgraph module["roadwarrior instance, rootless"]
+        subgraph module["roadwarrior instance, rootful"]
             ovpn["openvpn-server container<br/>host network"]
             dns["openvpn-dns container<br/>dnsmasq on 10.8.0.1"]
         end
 
-        tun["tun device tunrwN<br/>10.8.0.1/24<br/>created by the core"]
+        tun["tun device tunrwN<br/>10.8.0.1/24<br/>created by OpenVPN"]
         zone["firewalld zone tunrwN<br/>443, 80, 53, Samba ports<br/>SSH rejected"]
         traefik["Traefik<br/>HTTP routes"]
         apps["web apps of the node"]
@@ -34,13 +34,18 @@ flowchart LR
     ovpn -. "password check" .-> ldap
 ```
 
-The module runs rootless, so it cannot create network devices or firewall rules. It asks the core instead:
+OpenVPN creates the tun device and sets the server address, for example `10.8.0.1/24`. The firewall belongs to the core, so the module asks it:
 
-- `add_tun` creates the tun device with the server address, for example `10.8.0.1/24`.
 - `add_custom_zone` puts the tun in its own firewalld zone. That zone opens only the ports the clients need.
 - `add_public_service` opens the UDP port of the instance on the public side.
 
-OpenVPN runs with the host network and receives the tun from the core. It does not configure addresses or routes itself (`ifconfig-noexec`, `route-noexec`). Without a container network in the middle, throughput stays close to the line rate.
+OpenVPN runs with the host network. Without a container network in the middle, throughput stays close to the line rate.
+
+The module was rootless at first, with a tun created by the core. Since Linux 6.12.117 (Debian 13), the kernel requires CAP_NET_ADMIN in the host user namespace to attach to a tun without an owner, and a rootless container cannot have it. So the module is rootful, and limits what root can do:
+
+- OpenVPN opens the tun as root, then runs as the host user `ovpn-<module_id>`. The TLS handshake, the login scripts and the session hooks never run as root.
+- The server container keeps only `NET_ADMIN`, `SETUID` and `SETGID`. The resolver keeps only `NET_BIND_SERVICE`, `SETUID` and `SETGID`, and dnsmasq drops to its own user. Both run with `no-new-privileges` and a read-only root filesystem.
+- The PKI and the configuration stay owned by root. The OpenVPN user writes only the login state in `db/` of the volume, and reads the LDAP password and the authenticator secrets through its group.
 
 ## A login
 
@@ -103,7 +108,7 @@ flowchart LR
 
 The node does not forward packets from the tun zone. So a client reaches the services of this node only. The default route of the client stays on its own network: its Internet traffic does not enter the VPN.
 
-Reaching other nodes, the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it. It waits for a core action, planned for a later version.
+Reaching other nodes, the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. It is planned for a later version.
 
 ## Keeping an app for the VPN clients
 

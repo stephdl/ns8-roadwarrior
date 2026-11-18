@@ -1,0 +1,41 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Template: install-systemd-units writes it to /etc/systemd/system/${MODULE_ID}-openvpn-dns.service.
+# Resolver of the VPN clients, on the tun address: the names of the web apps answer with that address,
+# so the browser goes through the tunnel and Traefik sees the VPN address of the client.
+
+[Unit]
+Description=OpenVPN road warrior resolver of ${MODULE_ID}
+After=${MODULE_ID}-openvpn-server.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=/var/lib/nethserver/${MODULE_ID}/state/environment
+WorkingDirectory=/var/lib/nethserver/${MODULE_ID}/state
+Restart=always
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/%N.pid %t/%N.ctr-id
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/%N.pid \
+    --cidfile %t/%N.ctr-id --cgroups=no-conmon \
+    --replace -d --name %N \
+    --network=host \
+    --cap-drop=all \
+    --cap-add=NET_BIND_SERVICE,SETUID,SETGID \
+    --security-opt no-new-privileges \
+    --read-only \
+    --pids-limit=64 \
+    --volume ./ovpn:/run/ovpn:ro,z \
+    ${ROADWARRIOR_SERVER_IMAGE} dnsmasq
+# dnsmasq reads the hosts file again on SIGHUP. Never send one to the server: it would reopen the tun.
+ExecReload=/usr/bin/podman kill -s HUP %N
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/%N.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/%N.ctr-id
+PIDFile=%t/%N.pid
+SyslogIdentifier=%N
+
+[Install]
+WantedBy=multi-user.target

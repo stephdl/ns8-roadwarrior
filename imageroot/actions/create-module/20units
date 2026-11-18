@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+exec 1>&2
+
+install-systemd-units
+
+# A rootless install left on this node by an older build keeps a tun-manager for the same tun.
+# It would create the tun first at boot, and OpenVPN could not set its address.
+systemctl disable --now "tun-manager@${OVPN_TUN}.service" 2>/dev/null || :
+rm -f "/etc/nethserver/tun/${OVPN_TUN}.env"

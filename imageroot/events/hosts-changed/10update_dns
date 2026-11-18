@@ -18,5 +18,5 @@ if not om.is_configured() or str(event.get("node_id")) != os.environ["NODE_ID"]:
     sys.exit(0)
 if om.write_runtime():
     # A new domain changes what the server pushes: clients reconnect on their own
-    subprocess.run(["systemctl", "--user", "try-restart", "openvpn-server.service"], check=False)
-subprocess.run(["systemctl", "--user", "reload", "openvpn-dns.service"], check=False)
+    subprocess.run(["systemctl", "try-restart", om.unit("openvpn-server")], check=False)
+subprocess.run(["systemctl", "reload", om.unit("openvpn-dns")], check=False)

@@ -18,7 +18,7 @@ if certs:
     proc = om.podman_exec("ovpn-mgmt", "status", check=False)
     if proc.returncode == 0:
         connected = {client["name"] for client in json.loads(proc.stdout)}
-    proc = om.podman_exec("ovpn-history", "last", check=False)
+    proc = om.podman_exec("ovpn-history", "last", check=False, as_ovpn=True)
     if proc.returncode == 0:
         last_login = json.loads(proc.stdout)
 

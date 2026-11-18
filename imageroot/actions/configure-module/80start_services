@@ -9,11 +9,11 @@ set -e
 exec 1>&2
 
 rm -f waiting-for-original
-systemctl --user enable openvpn-server.service openvpn-dns.service
+systemctl enable "${MODULE_ID}-openvpn-server.service" "${MODULE_ID}-openvpn-dns.service"
 if [ -e ovpn/restart-needed ]; then
-    systemctl --user restart openvpn-server.service openvpn-dns.service
+    systemctl restart "${MODULE_ID}-openvpn-server.service" "${MODULE_ID}-openvpn-dns.service"
     rm -f ovpn/restart-needed
 else
     # Only the resolver lists changed: no client is dropped
-    systemctl --user reload-or-restart openvpn-dns.service
+    systemctl reload-or-restart "${MODULE_ID}-openvpn-dns.service"
 fi

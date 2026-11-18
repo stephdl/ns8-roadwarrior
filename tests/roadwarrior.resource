@@ -61,13 +61,19 @@ Run task
 Fingerprint
     [Documentation]    SHA-256 fingerprint of a certificate in the PKI of the module
     [Arguments]    ${file}
-    ${output} =    Execute Command    runagent -m ${module_id} podman exec openvpn-server openssl x509 -in /etc/openvpn/pki/${file} -noout -fingerprint -sha256
+    ${output} =    Execute Command    podman exec ${module_id}-openvpn-server openssl x509 -in /etc/openvpn/pki/${file} -noout -fingerprint -sha256
     Should Contain    ${output}    Fingerprint
     RETURN    ${output}
 
 Server is running
-    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-server
+    ${output} =    Execute Command    systemctl is-active ${module_id}-openvpn-server
     Should Be Equal    ${output}    active
+
+OpenVPN runs as its own user
+    ${uid} =    Execute Command    id -u ovpn-${module_id}
+    # The container main process is openvpn: the node may run other openvpn processes
+    ${output} =    Execute Command    ps -o uid= -p "$(podman inspect -f '{{.State.Pid}}' ${module_id}-openvpn-server)"
+    Should Be Equal As Strings    ${output.strip()}    ${uid.strip()}
 
 Module environment
     [Arguments]    ${name}

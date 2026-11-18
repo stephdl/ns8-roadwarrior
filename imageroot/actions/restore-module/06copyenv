@@ -13,7 +13,7 @@ import ovpn_module as om
 request = json.load(sys.stdin)
 original = request["environment"]
 
-# OVPN_TUN and OVPN_TUN_IP stay those of this instance: the tun belongs to the node
+# OVPN_TUN stays that of this instance: two instances on a node must not share a tun name
 for key in om.SETTINGS_DEFAULTS:
     if key in original:
         agent.set_env(key, original[key])

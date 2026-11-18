@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Write the units of this instance under /etc/systemd/system.
+# Only MODULE_ID is replaced: systemd expands the other variables from the environment file.
+
+set -e
+
+for unit in openvpn-server openvpn-dns; do
+    envsubst '${MODULE_ID}' <"${AGENT_INSTALL_DIR}/systemd/${unit}.service" \
+        >"/etc/systemd/system/${MODULE_ID}-${unit}.service"
+done
+systemctl daemon-reload

@@ -34,9 +34,9 @@ TOTP_STEP = 30
 # One step before and after, for clocks that drift a little
 TOTP_WINDOW = 1
 # Last code step used by each user: a code works once
-TOTP_USED = "/etc/openvpn/totp-used.json"
+TOTP_USED = "/etc/openvpn/db/totp-used.json"
 # Pending dynamic challenges: the password passed, the code is still to come
-CHALLENGES = "/etc/openvpn/run/challenges.json"
+CHALLENGES = "/etc/openvpn/db/challenges.json"
 CHALLENGE_TTL = 180
 CHALLENGE_TEXT = "Authenticator code"
 
@@ -205,7 +205,7 @@ def run_check(username, password, common_name):
     return False, None
 
 
-AUTH_TIMES = "/etc/openvpn/last-full-auth.json"
+AUTH_TIMES = "/etc/openvpn/db/last-full-auth.json"
 
 
 def record_full_auth(name):
@@ -227,7 +227,7 @@ def token_cut(name):
     The session token lives 12 hours and skips the password: a disconnect must end it.
     """
     try:
-        with open("/etc/openvpn/token-cutoff.json") as f:
+        with open("/etc/openvpn/run/token-cutoff.json") as f:
             cutoff = json.load(f).get(name.lower(), 0)
     except (FileNotFoundError, ValueError):
         return False

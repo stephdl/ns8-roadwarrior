@@ -17,8 +17,9 @@ import sys
 import time
 
 SOCKET = "/etc/openvpn/run/mgmt.sock"
-# Read by ovpn-auth: a session token issued before this time no longer logs in
-TOKEN_CUTOFF = "/etc/openvpn/token-cutoff.json"
+# Read by ovpn-auth: a session token issued before this time no longer logs in.
+# Root writes it, OpenVPN reads it after dropping root: it lives in the root-owned run/.
+TOKEN_CUTOFF = "/etc/openvpn/run/token-cutoff.json"
 
 
 def command(cmd, end):
@@ -77,7 +78,7 @@ def cut_tokens(name):
         cutoff = {}
     cutoff[name.lower()] = int(time.time())
     tmp = TOKEN_CUTOFF + ".tmp"
-    with open(tmp, "w") as f:
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644), "w") as f:
         json.dump(cutoff, f)
     os.replace(tmp, TOKEN_CUTOFF)
 
