@@ -157,8 +157,8 @@ def firewall_ports(expose_samba):
 def write_text(path, text):
     # The containers read these files at any time: never let them see a half written one
     tmp = f"{path}.{os.getpid()}.tmp"
-    # Explicit mode: the containers read these files after dropping root
-    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644), "w") as f:
+    with open(tmp, "w") as f:
+        # Explicit mode, whatever the umask: the containers read these files after dropping root
         os.fchmod(f.fileno(), 0o644)
         f.write(text)
     os.replace(tmp, path)
