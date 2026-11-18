@@ -10,6 +10,7 @@ import fcntl
 import ipaddress
 import json
 import os
+import pwd
 import re
 import shlex
 import socket
@@ -24,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import agent.ldapproxy
 
-CONTAINER = "openvpn-server"
+CONTAINER = f"{os.environ.get('MODULE_ID', '')}-openvpn-server"
 RUNTIME_DIR = "ovpn"
 SERVER_ENV = "ovpn/server.env"
 AUTH_JSON = "ovpn/auth.json"
@@ -62,10 +63,20 @@ def log(*args):
     print(*args, file=sys.stderr)
 
 
+def ovpn_ids():
+    """uid and gid of the user OpenVPN runs as, created by create-module"""
+    pw = pwd.getpwnam(f"ovpn-{os.environ['MODULE_ID']}")
+    return pw.pw_uid, pw.pw_gid
+
+
 def write_private(path, text):
-    os.makedirs(os.path.dirname(path) or ".", mode=0o700, exist_ok=True)
+    # Root writes, OpenVPN reads after dropping root: group read for its group only
+    gid = ovpn_ids()[1]
+    os.makedirs(os.path.dirname(path) or ".", mode=0o750, exist_ok=True)
     tmp = path + ".tmp"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchown(fd, 0, gid)
+    os.fchmod(fd, 0o640)
     with os.fdopen(fd, "w") as f:
         f.write(text)
     os.replace(tmp, path)
@@ -146,7 +157,9 @@ def firewall_ports(expose_samba):
 def write_text(path, text):
     # The containers read these files at any time: never let them see a half written one
     tmp = f"{path}.{os.getpid()}.tmp"
-    with open(tmp, "w") as f:
+    # Explicit mode: the containers read these files after dropping root
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644), "w") as f:
+        os.fchmod(f.fileno(), 0o644)
         f.write(text)
     os.replace(tmp, path)
 
@@ -219,6 +232,10 @@ def write_runtime(rdb=None):
     }
     new_server_env = "".join(f"{k}={shlex.quote(v)}\n" for k, v in server_env.items())
     write_text(SERVER_ENV, new_server_env)
+    # Mounted on /etc/passwd and /etc/group of the server: "ovpn" maps to the host user
+    uid, gid = ovpn_ids()
+    write_text(f"{RUNTIME_DIR}/passwd", f"root:x:0:0:root:/root:/sbin/nologin\novpn:x:{uid}:{gid}:ovpn:/nonexistent:/sbin/nologin\n")
+    write_text(f"{RUNTIME_DIR}/group", f"root:x:0:\novpn:x:{gid}:\n")
     write_text(HOSTS, "".join(f"{server_ip} {host}\n" for host in hosts))
     dnsmasq = "domain-needed\n"
     if samba:
@@ -241,8 +258,10 @@ def write_runtime(rdb=None):
     return new_server_env != old_server_env
 
 
-def podman_exec(*args, check=True, input=None):
-    cmd = ["podman", "exec"] + (["-i"] if input is not None else []) + [CONTAINER, *args]
+def podman_exec(*args, check=True, input=None, as_ovpn=False):
+    # Numeric ids: podman resolves names from the image, not from the mounted passwd
+    user = ["--user", "%d:%d" % ovpn_ids()] if as_ovpn else []
+    cmd = ["podman", "exec"] + (["-i"] if input is not None else []) + user + [CONTAINER, *args]
     proc = subprocess.run(cmd, capture_output=True, text=True, input=input)
     if proc.stderr:
         log(proc.stderr.rstrip())
@@ -252,7 +271,11 @@ def podman_exec(*args, check=True, input=None):
 
 
 def server_running():
-    return subprocess.run(["systemctl", "--user", "-q", "is-active", "openvpn-server.service"]).returncode == 0
+    return subprocess.run(["systemctl", "-q", "is-active", unit("openvpn-server")]).returncode == 0
+
+
+def unit(name):
+    return f"{os.environ['MODULE_ID']}-{name}.service"
 
 
 def pki_list():
@@ -317,7 +340,7 @@ def save_totp(data):
 def totp_ok(secret, code, name=None):
     # The server image owns the TOTP check, so enrollment and login agree on the same rules.
     # With a name the code is spent: the code typed to confirm cannot open a session.
-    proc = podman_exec("ovpn-auth", "totp-check", check=False,
+    proc = podman_exec("ovpn-auth", "totp-check", check=False, as_ovpn=True,
                        input=json.dumps({"secret": secret, "code": code, "name": name}))
     return proc.returncode == 0
 

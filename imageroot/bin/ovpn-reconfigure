@@ -6,7 +6,7 @@
 #
 
 # Run configure-module with the saved settings after a clone, a move or a restore.
-# The tun, its firewall zone, the public port and the user domain binding belong to the node,
+# The firewall zone, the public port and the user domain binding belong to the node,
 # so the copy must create them again. The PKI comes with the state: profiles stay valid.
 #
 # If the original instance still runs on this node, its port and network conflict.
@@ -37,7 +37,7 @@ CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
 
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
-    subprocess.run(["systemctl", "--user", "disable", "--now", "openvpn-server.service", "openvpn-dns.service"], check=False)
+    subprocess.run(["systemctl", "disable", "--now", om.unit("openvpn-server"), om.unit("openvpn-dns")], check=False)
     errors = response["output"] if isinstance(response["output"], list) else []
     if errors and all((e.get("parameter"), e.get("error")) in CONFLICTS for e in errors):
         open(om.WAITING, "w").close()

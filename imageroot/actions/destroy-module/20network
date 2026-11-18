@@ -5,17 +5,27 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+# The core removes neither the units of a rootful module nor the host user: do it here.
+
 import os
 import subprocess
 import agent
+import ovpn_module as om
 
-# The core stops the services later, at 50destroy: while OpenVPN holds the tun, remove-tun fails with "busy"
-subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
+units = [om.unit("openvpn-server"), om.unit("openvpn-dns")]
+subprocess.run(["systemctl", "disable", "--now", *units], check=False)
+for unit in units:
+    try:
+        os.unlink(f"/etc/systemd/system/{unit}")
+    except FileNotFoundError:
+        pass
+subprocess.run(["systemctl", "daemon-reload"], check=False)
 
-# The zone and the tun belong to the node: they outlive the module unless removed here
+# The zone belongs to the node: it outlives the module unless removed here
 tun = os.environ.get("OVPN_TUN")
 if tun:
     agent.remove_custom_zone(tun)
-    if os.environ.get("OVPN_TUN_IP"):
-        agent.remove_tun(tun)
 agent.remove_public_service(os.environ["MODULE_ID"])
+
+# After the stop: userdel refuses a user that still runs processes
+subprocess.run(["userdel", f"ovpn-{os.environ['MODULE_ID']}"], check=False)

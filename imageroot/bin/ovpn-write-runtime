@@ -6,11 +6,44 @@
 #
 
 # Run before the server starts: the LDAP settings and the app names may have changed since configure-module.
+# It also sets the owners the server expects. A restore or a clone brings the numeric owners of
+# another node, and root in the container has no right to fix them.
 
 import os
+import subprocess
 import ovpn_module as om
 
+uid, gid = om.ovpn_ids()
+
 # Both directories are mounted in the containers, podman refuses a missing one
-os.makedirs(om.RUNTIME_DIR, exist_ok=True)
-os.makedirs("secrets", mode=0o700, exist_ok=True)
+os.makedirs(om.RUNTIME_DIR, mode=0o755, exist_ok=True)
+os.chmod(om.RUNTIME_DIR, 0o755)
+os.makedirs("secrets", mode=0o750, exist_ok=True)
+for root, dirs, files in os.walk("secrets"):
+    os.chown(root, 0, gid)
+    os.chmod(root, 0o750)
+    for name in files:
+        os.chown(os.path.join(root, name), 0, gid)
+        os.chmod(os.path.join(root, name), 0o640)
+
+subprocess.run(["podman", "volume", "create", "--ignore", f"{os.environ['MODULE_ID']}-data"],
+               check=True, stdout=subprocess.DEVNULL)
+volume = subprocess.run(["podman", "volume", "inspect", f"{os.environ['MODULE_ID']}-data", "--format", "{{.Mountpoint}}"],
+                        check=True, capture_output=True, text=True).stdout.strip()
+# Config and PKI stay root: the user must not change what the next root start reads
+os.chown(volume, 0, 0)
+os.chmod(volume, 0o755)
+# Mutable login state: written by the login scripts after the drop
+db = os.path.join(volume, "db")
+os.makedirs(db, exist_ok=True)
+for root, dirs, files in os.walk(db):
+    for path in [root] + [os.path.join(root, f) for f in files]:
+        os.lchown(path, uid, gid)
+os.chmod(db, 0o700)
+# Created by root before the drop, read by the login scripts: token-cutoff.json, status.log
+run = os.path.join(volume, "run")
+os.makedirs(run, exist_ok=True)
+os.chown(run, 0, 0)
+os.chmod(run, 0o755)
+
 om.write_runtime()

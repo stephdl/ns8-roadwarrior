@@ -3,35 +3,44 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# Host network: OpenVPN opens the tun created by the core and the clients reach the node services
-# with their VPN address. label=disable is needed to open /dev/net/tun under SELinux.
+# Template: install-systemd-units writes it to /etc/systemd/system/${MODULE_ID}-openvpn-server.service.
+# Host network: OpenVPN creates its tun, and the clients reach the node services with their VPN address.
+# Root in the container keeps only NET_ADMIN for the tun, plus SETUID/SETGID to drop to "ovpn".
+# label=disable is needed to open /dev/net/tun under SELinux.
 
 [Unit]
-Description=Podman openvpn-server.service
+Description=OpenVPN road warrior server of ${MODULE_ID}
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
-EnvironmentFile=%E/state/environment
-WorkingDirectory=%E/state
+EnvironmentFile=/var/lib/nethserver/${MODULE_ID}/state/environment
+WorkingDirectory=/var/lib/nethserver/${MODULE_ID}/state
 Restart=always
 TimeoutStopSec=70
 Type=forking
-ExecStartPre=/bin/rm -f %t/openvpn-server.pid %t/openvpn-server.ctr-id
-ExecStartPre=runagent ovpn-write-runtime
-ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-server.pid \
-    --cidfile %t/openvpn-server.ctr-id --cgroups=no-conmon \
-    --replace -d --name openvpn-server \
+ExecStartPre=/bin/rm -f %t/%N.pid %t/%N.ctr-id
+ExecStartPre=runagent -m ${MODULE_ID} ovpn-write-runtime
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/%N.pid \
+    --cidfile %t/%N.ctr-id --cgroups=no-conmon \
+    --replace -d --name %N \
     --network=host \
     --device /dev/net/tun \
+    --cap-drop=all \
+    --cap-add=NET_ADMIN,SETUID,SETGID \
+    --security-opt no-new-privileges \
     --security-opt label=disable \
-    --volume openvpn-data:/etc/openvpn:z \
-    --volume ./ovpn:/run/ovpn:ro,z \
-    --volume ./secrets:/run/ovpn-secrets:ro,z \
+    --read-only \
+    --pids-limit=256 \
+    --volume ${MODULE_ID}-data:/etc/openvpn \
+    --volume ./ovpn:/run/ovpn:ro \
+    --volume ./ovpn/passwd:/etc/passwd:ro \
+    --volume ./ovpn/group:/etc/group:ro \
+    --volume ./secrets:/run/ovpn-secrets:ro \
     ${ROADWARRIOR_SERVER_IMAGE} openvpn
-ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-server.ctr-id -t 10
-ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-server.ctr-id
-PIDFile=%t/openvpn-server.pid
-SyslogIdentifier=%u
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/%N.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/%N.ctr-id
+PIDFile=%t/%N.pid
+SyslogIdentifier=%N
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

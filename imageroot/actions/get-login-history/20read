@@ -13,7 +13,7 @@ request = json.load(sys.stdin)
 name = request.get("name", "")
 events = []
 if om.server_running():
-    proc = om.podman_exec("ovpn-history", "list", *([name] if name else []), check=False)
+    proc = om.podman_exec("ovpn-history", "list", *([name] if name else []), check=False, as_ovpn=True)
     if proc.returncode == 0:
         events = json.loads(proc.stdout)
 json.dump({"name": name, "events": events}, fp=sys.stdout)

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# OpenVPN and its login scripts run as this user once the tun is open.
+# Not named MODULE_ID: the core takes a Unix user of that name for a rootless module.
+
+set -e
+exec 1>&2
+
+user="ovpn-${MODULE_ID}"
+if ! getent passwd "${user}" >/dev/null; then
+    useradd --system --no-create-home --home-dir /nonexistent --shell /sbin/nologin --user-group "${user}"
+fi

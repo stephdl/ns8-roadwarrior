@@ -13,4 +13,4 @@ if ! grep -q '^OVPN_HOST=' environment; then
     exit 0
 fi
 
-systemctl --user try-restart openvpn-server.service openvpn-dns.service
+systemctl try-restart "${MODULE_ID}-openvpn-server.service" "${MODULE_ID}-openvpn-dns.service"
