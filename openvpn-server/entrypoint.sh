@@ -7,6 +7,8 @@
 
 # Settings come from /run/ovpn/server.env, written by configure-module.
 # The volume /etc/openvpn keeps the PKI and the generated files.
+# OpenVPN starts as root to open the tun, then runs as the user "ovpn" of the mounted
+# /etc/passwd. The host prepares db/ for that user before the start (ovpn-write-runtime).
 
 set -e
 
@@ -15,7 +17,9 @@ set -e
 case "$1" in
 openvpn)
     ovpn-pki init
-    mkdir -p /etc/openvpn/run
+    # Root without DAC_OVERRIDE: the dirs on the path to crl.pem must stay readable after the drop
+    chmod 0755 /etc/openvpn/pki
+    mkdir -p -m 0755 /etc/openvpn/run
     if [ "${AUTH_MODE}" = "certificate_password" ]; then
         auth_lines="auth-user-pass-verify /usr/local/bin/ovpn-auth via-file
 auth-gen-token 43200 external-auth
@@ -50,9 +54,12 @@ dev ${OVPN_TUN}
 dev-type tun
 topology subnet
 server ${OVPN_NETWORK} ${OVPN_NETMASK}
-# The core tun-manager owns the address of the tun and the host routes
-ifconfig-noexec
-route-noexec
+# The tun is opened once as root: a SIGHUP would reopen it without the rights, never send one
+persist-tun
+user ovpn
+group ovpn
+# Kernel DCO creates its own kind of interface, keep the plain tun
+disable-dco
 port ${OVPN_PORT}
 proto udp
 # Reply from the address the client contacted: the node can hold several addresses
@@ -72,9 +79,13 @@ client-connect /usr/local/bin/ovpn-connect
 client-disconnect "/usr/local/bin/ovpn-history disconnect"
 ${push_lines}${dns_lines}
 management /etc/openvpn/run/mgmt.sock unix
+# The socket is world-writable: only root, through podman exec, may drive it
+management-client-user root
 status /etc/openvpn/run/status.log 30
 keepalive 10 60
+# OpenVPN 2.6 rereads the keys on a soft restart, which fails once root is dropped
 persist-key
+tmp-dir /tmp
 explicit-exit-notify 1
 verb 3
 EOF
@@ -83,7 +94,8 @@ EOF
 dnsmasq)
     # Only the VPN clients ask this resolver: it listens on the tun address alone.
     # The names of the hosts file answer with the tun address, the rest goes to the node resolver.
-    exec dnsmasq --keep-in-foreground --log-facility=- \
+    # It drops root to its own user once the port is bound. No pid file on a read-only root.
+    exec dnsmasq --keep-in-foreground --log-facility=- --user=dnsmasq --pid-file= \
         --listen-address="${OVPN_SERVER_IP}" --bind-dynamic --except-interface=lo \
         --no-hosts --addn-hosts=/run/ovpn/hosts --conf-file=/run/ovpn/dnsmasq.conf
     ;;

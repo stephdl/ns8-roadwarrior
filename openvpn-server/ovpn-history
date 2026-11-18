@@ -19,9 +19,9 @@ import os
 import sys
 import time
 
-HISTORY = "/etc/openvpn/history.jsonl"
+HISTORY = "/etc/openvpn/db/history.jsonl"
 # Last login time of each account, so the accounts list does not read the whole history
-LAST_LOGIN = "/etc/openvpn/last-login.json"
+LAST_LOGIN = "/etc/openvpn/db/last-login.json"
 # Keep the file small: when it grows past MAX_BYTES, drop the oldest events down to KEEP_LINES.
 # The size check avoids reading the whole file in the connect hook, which blocks every client.
 MAX_BYTES = 4 * 1024 * 1024
