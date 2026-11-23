@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# Another roadwarrior instance joins this hub. The core gives its identity, the input cannot.
+# A roadwarrior instance of another node joins this hub. The admin, or the UI of that node, passes
+# its certificate request here, then the answer to the configure-module of that node.
 
 import json
 import os
@@ -14,19 +15,15 @@ import agent
 import ovpn_module as om
 
 request = json.load(sys.stdin)
+module_id = request["module_id"]
 if om.mode() != "hub":
-    om.fail_validation("mode", om.mode(), "not_a_hub")
-caller = os.environ.get("AGENT_TASK_USER", "")
-module_id = caller.removeprefix("module/")
-if not caller.startswith("module/roadwarrior") or module_id == os.environ["MODULE_ID"]:
-    om.fail_validation("csr", "", "caller_not_allowed")
-
+    om.fail_validation("module_id", module_id, "not_a_hub")
 rdb = agent.redis_connect(use_replica=True)
 node_id = rdb.hget("cluster/module_node", module_id)
-if not node_id:
-    om.fail_validation("csr", "", "caller_not_allowed")
+if module_id == os.environ["MODULE_ID"] or not node_id:
+    om.fail_validation("module_id", module_id, "module_not_found")
 if not om.server_running():
-    om.fail_validation("mode", "hub", "server_not_running")
+    om.fail_validation("module_id", module_id, "server_not_running")
 
 joined = om.register_spoke(module_id, node_id, request["csr"], request.get("expose_samba", False))
 om.apply_runtime(om.write_runtime(rdb))

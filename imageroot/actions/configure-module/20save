@@ -14,10 +14,9 @@ import ovpn_module as om
 request = json.load(sys.stdin)
 mode = request.get("mode", "standalone")
 
-# Leave the old hub before joining another one, or before taking users again
-old_hub = os.environ.get("OVPN_HUB", "") if om.mode() == "spoke" else ""
-if old_hub and (mode != "spoke" or request["hub"] != old_hub):
-    om.leave_hub(old_hub)
+if mode != "spoke" and os.path.exists(om.SPOKE_JOIN):
+    # The old hub keeps the node in its list until the admin removes it there
+    os.unlink(om.SPOKE_JOIN)
 if om.mode() == "hub" and mode != "hub":
     # Validation left only the spoke of this node: its address goes with the link
     om.save_spokes({})
@@ -26,6 +25,11 @@ agent.set_env("OVPN_MODE", mode)
 agent.set_env("OVPN_HUB", request["hub"] if mode == "spoke" else "")
 agent.set_env("OVPN_EXPOSE_SAMBA", str(bool(request.get("expose_samba"))))
 if mode == "spoke":
+    if request.get("join"):
+        om.save_join(request["join"])
+    join = om.load_join()
+    agent.set_env("OVPN_SPOKE_IP", join["ip"])
+    agent.set_env("OVPN_RW_NETWORK", join["rw_network"])
     # A spoke keeps the user settings it had, so a return to standalone finds them again
     agent.bind_user_domains([])
     sys.exit(0)

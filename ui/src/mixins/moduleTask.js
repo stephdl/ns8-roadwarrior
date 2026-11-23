@@ -10,6 +10,8 @@ import to from "await-to-js";
 export default {
   methods: {
     async runModuleTask({
+      // Another instance, like the hub a node joins
+      instance,
       action,
       data,
       title,
@@ -62,7 +64,7 @@ export default {
         task.data = data;
       }
       const res = await to(
-        this.createModuleTaskForApp(this.instanceName, task)
+        this.createModuleTaskForApp(instance || this.instanceName, task)
       );
       if (res[0]) {
         console.error(`error creating task ${action}`, res[0]);

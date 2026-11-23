@@ -5,21 +5,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# A node leaves this hub. A roadwarrior instance removes itself only, the admin removes any node.
+# Remove a node from this hub: its certificate is revoked and its address freed.
+# The node keeps trying to connect until its role changes.
 
 import json
 import os
 import sys
 import ovpn_module as om
 
-request = json.load(sys.stdin)
-caller = os.environ.get("AGENT_TASK_USER", "")
-if caller.startswith("module/"):
-    module_id = caller.removeprefix("module/")
-else:
-    module_id = request.get("module_id", "")
+module_id = json.load(sys.stdin)["module_id"]
 if module_id == os.environ["MODULE_ID"]:
-    # The spoke of this node leaves with the hub mode, in configure-module
+    # The spoke of this node leaves with the hub role, in configure-module
     om.fail_validation("module_id", module_id, "own_spoke")
 if om.unregister_spoke(module_id):
     changed = om.write_runtime()

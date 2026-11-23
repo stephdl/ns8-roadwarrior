@@ -29,6 +29,9 @@ if mode == "spoke":
         om.fail_validation("mode", mode, "accounts_exist")
     if request["hub"] not in [hub["module_id"] for hub in om.list_hubs(rdb)]:
         om.fail_validation("hub", request["hub"], "hub_not_found")
+    join = request.get("join") or om.load_join()
+    if join.get("hub") != request["hub"]:
+        om.fail_validation("hub", request["hub"], "not_joined")
     sys.exit(0)
 
 try:

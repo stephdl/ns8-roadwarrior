@@ -35,6 +35,8 @@ CCD_DIR = "ovpn/ccd"
 SPOKE_CA = "ovpn/spoke-ca.crt"
 SPOKE_CERT = "ovpn/spoke.crt"
 SPOKE_KEY = "secrets/spoke.key"
+# What the hub gave this node when it joined: {"hub", "ip", "rw_network", "ca", "cert"}
+SPOKE_JOIN = "spoke.json"
 # Nodes registered on a hub: {module_id: {"node_id", "ip", "expose_samba"}}
 SPOKES = "spokes.json"
 # Names of the tun devices inside the network namespace of the hub pod
@@ -237,15 +239,20 @@ def sign_spoke(module_id, csr):
 
 
 def register_spoke(module_id, node_id, csr, expose_samba):
-    """Register a node on this hub and return what it needs to join."""
+    """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
     conf = settings()
     spokes = load_spokes()
+    if module_id == os.environ["MODULE_ID"]:
+        # A restored or cloned hub has a new id: its own spoke under the old id goes
+        local_ip = s2s_networks(conf["OVPN_NETWORK"])["local_ip"]
+        spokes = {k: v for k, v in spokes.items() if k == module_id or v["ip"] != local_ip}
     ip = assign_spoke_ip(spokes, module_id, conf)
     ca, cert = sign_spoke(module_id, csr)
     spokes[module_id] = {"node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba)}
     save_spokes(spokes)
     link = s2s_networks(conf["OVPN_NETWORK"])
     return {
+        "hub": os.environ["MODULE_ID"],
         "ip": f"{ip}/{link['supernet'].prefixlen}",
         "rw_network": conf["OVPN_NETWORK"],
         "ca": ca,
@@ -281,32 +288,19 @@ def spoke_key_and_csr():
     return csr.public_bytes(serialization.Encoding.PEM).decode()
 
 
-def leave_hub(hub):
-    """Unregister from a hub. A hub that is gone has nothing left to unregister."""
-    response = agent.tasks.run(agent_id=f"module/{hub}", action="remove-spoke", data={},
-                               extra={"isNotificationHidden": True})
-    if response["exit_code"] != 0:
-        log(agent.SD_WARNING + f"{hub} did not unregister this node: {response.get('error', '')}")
-    for path in (SPOKE_CA, SPOKE_CERT):
-        if os.path.exists(path):
-            os.unlink(path)
+def load_join():
+    return load_json(SPOKE_JOIN, {})
 
 
-def join_hub(hub, expose_samba):
-    """Register on a hub and keep what it returns. The key of the node never leaves it."""
-    response = agent.tasks.run(agent_id=f"module/{hub}", action="add-spoke",
-                               data={"csr": spoke_key_and_csr(), "expose_samba": bool(expose_samba)},
-                               extra={"isNotificationHidden": True})
-    if response["exit_code"] != 0:
-        # 403 when the core has not granted spokeadm on this hub yet
-        raise RuntimeError(f"{hub} refused this node: {response.get('error') or response.get('output')}")
-    return response["output"]
+def save_join(join):
+    """Keep what the hub gave. It is in the backup: a restored node joins again without the hub."""
+    save_json(SPOKE_JOIN, join)
 
 
 def save_spoke_certs(ca, cert):
     os.makedirs(RUNTIME_DIR, exist_ok=True)
-    write_text(SPOKE_CA, ca)
-    write_text(SPOKE_CERT, cert)
+    changed = write_if_changed(SPOKE_CA, ca)
+    return write_if_changed(SPOKE_CERT, cert) or changed
 
 
 def spoke_hub_endpoint(rdb):
@@ -406,6 +400,10 @@ def write_runtime(rdb=None):
     rdb = rdb or agent.redis_connect(use_replica=True)
     os.makedirs(RUNTIME_DIR, exist_ok=True)
     changed = set()
+    if mode() == "spoke":
+        join = load_join()
+        if join and save_spoke_certs(join["ca"], join["cert"]):
+            changed.add("openvpn-spoke.service")
     if mode() in ("hub", "spoke"):
         remote, port = spoke_hub_endpoint(rdb)
         if write_if_changed(SPOKE_ENV, env_text({

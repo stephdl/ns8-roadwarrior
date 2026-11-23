@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# First step to join a hub: the key of this node stays here, the request goes to add-spoke of the hub
+
+import json
+import sys
+import ovpn_module as om
+
+json.dump({"csr": om.spoke_key_and_csr()}, fp=sys.stdout)

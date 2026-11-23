@@ -26,7 +26,9 @@
     "disable-account": "Disable an account",
     "enable-account": "Enable an account",
     "renew-account": "Renew a certificate",
-    "list-spokes": "List nodes"
+    "list-spokes": "List nodes",
+    "request-spoke-certificate": "Request a certificate to join a hub",
+    "add-spoke": "Join a hub"
   },
   "error": {
     "error": "Error",
@@ -230,7 +232,11 @@
     "no_hub_description": "Set the role Hub on the roadwarrior instance of another node first.",
     "hub_has_spokes": "Other nodes joined this hub. Remove them from the Status page first",
     "accounts_exist": "This instance has VPN accounts. Remove them first",
-    "hub_not_found": "This hub does not exist anymore"
+    "hub_not_found": "This hub does not exist anymore",
+    "server_not_running": "The hub {hub} is not running. Start it first",
+    "not_a_hub": "{hub} is not a hub anymore",
+    "not_joined": "This node never joined this hub. Save again to join it",
+    "module_not_found": "The hub does not know this instance"
   },
   "sessions": {
     "title": "Sessions",

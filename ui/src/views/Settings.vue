@@ -435,20 +435,62 @@ export default {
       }
       this.loading.configureModule = true;
       this.error.configureModule = "";
+      if (this.mode === "spoke") {
+        this.joinHub();
+        return;
+      }
       const passwordMode = this.authMode === "certificate_password";
-      const data =
-        this.mode === "spoke"
-          ? { mode: "spoke", hub: this.hub, expose_samba: this.exposeSamba }
-          : {
-              mode: this.mode,
-              host: this.host,
-              port: this.port,
-              network: this.network,
-              auth_mode: this.authMode,
-              user_domain: passwordMode ? this.userDomain : "",
-              totp_required: passwordMode && this.totpRequired,
+      this.saveConfiguration({
+        mode: this.mode,
+        host: this.host,
+        port: this.port,
+        network: this.network,
+        auth_mode: this.authMode,
+        user_domain: passwordMode ? this.userDomain : "",
+        totp_required: passwordMode && this.totpRequired,
+        expose_samba: this.exposeSamba,
+      });
+    },
+    configureFailed(message) {
+      this.error.configureModule = message;
+      this.loading.configureModule = false;
+    },
+    joinHub() {
+      // The admin carries the request of this node to the hub, then the answer back:
+      // no instance gets rights on another one
+      this.runModuleTask({
+        action: "request-spoke-certificate",
+        completed: (request) => {
+          this.runModuleTask({
+            instance: this.hub,
+            action: "add-spoke",
+            data: {
+              module_id: this.instanceName,
+              csr: request.csr,
               expose_samba: this.exposeSamba,
-            };
+            },
+            completed: (join) => {
+              this.saveConfiguration({
+                mode: "spoke",
+                hub: this.hub,
+                expose_samba: this.exposeSamba,
+                join,
+              });
+            },
+            validationFailed: (errors) => {
+              this.configureFailed(
+                this.$t("settings." + errors[0].error, { hub: this.hub })
+              );
+            },
+            aborted: this.configureFailed,
+            failed: this.configureFailed,
+          });
+        },
+        aborted: this.configureFailed,
+        failed: this.configureFailed,
+      });
+    },
+    saveConfiguration(data) {
       this.runModuleTask({
         action: "configure-module",
         data,
@@ -462,14 +504,8 @@ export default {
           this.getConfiguration();
         },
         validationFailed: this.configureModuleValidationFailed,
-        aborted: (message) => {
-          this.error.configureModule = message;
-          this.loading.configureModule = false;
-        },
-        failed: (message) => {
-          this.error.configureModule = message;
-          this.loading.configureModule = false;
-        },
+        aborted: this.configureFailed,
+        failed: this.configureFailed,
       });
     },
   },

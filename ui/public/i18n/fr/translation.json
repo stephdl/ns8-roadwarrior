@@ -26,7 +26,9 @@
     "disable-account": "Désactiver un compte",
     "enable-account": "Activer un compte",
     "renew-account": "Renouveler un certificat",
-    "list-spokes": "Lister les nodes"
+    "list-spokes": "Lister les nodes",
+    "request-spoke-certificate": "Demander un certificat pour rejoindre un hub",
+    "add-spoke": "Rejoindre un hub"
   },
   "error": {
     "error": "Erreur",
@@ -230,7 +232,11 @@
     "no_hub_description": "Donnez d'abord le rôle Hub à l'instance roadwarrior d'un autre node.",
     "hub_has_spokes": "D'autres nodes ont rejoint ce hub. Retirez-les d'abord depuis la page Statut",
     "accounts_exist": "Cette instance a des comptes VPN. Supprimez-les d'abord",
-    "hub_not_found": "Ce hub n'existe plus"
+    "hub_not_found": "Ce hub n'existe plus",
+    "server_not_running": "Le hub {hub} ne tourne pas. Démarrez-le d'abord",
+    "not_a_hub": "{hub} n'est plus un hub",
+    "not_joined": "Ce node n'a jamais rejoint ce hub. Enregistrez à nouveau pour le rejoindre",
+    "module_not_found": "Le hub ne connaît pas cette instance"
   },
   "sessions": {
     "title": "Sessions",
