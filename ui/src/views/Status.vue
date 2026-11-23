@@ -148,12 +148,6 @@
         </div>
       </cv-column>
     </cv-row>
-    <!-- services -->
-    <cv-row>
-      <cv-column class="page-subtitle">
-        <h4>{{ $t("status.failed_services") }}</h4>
-      </cv-column>
-    </cv-row>
     <cv-row v-if="config.mode === 'hub'">
       <cv-column>
         <cv-tile light class="mg-bottom">
@@ -209,6 +203,12 @@
             </template>
           </cv-data-table>
         </cv-tile>
+      </cv-column>
+    </cv-row>
+    <!-- services -->
+    <cv-row>
+      <cv-column class="page-subtitle">
+        <h4>{{ $t("status.failed_services") }}</h4>
       </cv-column>
     </cv-row>
     <cv-row v-if="!loading.getStatus">
