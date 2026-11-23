@@ -11,7 +11,4 @@ import agent
 import ovpn_module as om
 
 rdb = agent.redis_connect(use_replica=True)
-hubs = om.list_hubs(rdb)
-for hub in hubs:
-    hub["node_name"] = rdb.get(f"node/{hub['node_id']}/ui_name") or ""
-json.dump(hubs, fp=sys.stdout)
+json.dump(om.list_hubs(rdb), fp=sys.stdout)

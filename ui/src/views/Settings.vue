@@ -314,11 +314,20 @@ export default {
       return this.loading.getConfiguration || this.loading.configureModule;
     },
     hubOptions() {
-      return this.hubs.map((hub) => ({
-        name: hub.module_id,
-        label: hub.host ? `${hub.module_id} (${hub.host})` : hub.module_id,
-        value: hub.module_id,
-      }));
+      return this.hubs.map((hub) => {
+        const node = this.$t(
+          hub.leader ? "settings.hub_on_leader" : "settings.hub_on_worker",
+          {
+            node: hub.node_name || hub.node_id,
+          }
+        );
+        const host = hub.host ? ` (${hub.host})` : "";
+        return {
+          name: hub.module_id,
+          label: `${hub.module_id}${host}, ${node}`,
+          value: hub.module_id,
+        };
+      });
     },
     userDomainOptions() {
       return this.userDomains.map((domain) => ({

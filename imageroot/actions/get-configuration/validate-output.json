@@ -119,6 +119,12 @@
                     },
                     "module_uuid": {
                         "type": "string"
+                    },
+                    "leader": {
+                        "type": "boolean"
+                    },
+                    "node_name": {
+                        "type": "string"
                     }
                 }
             }

@@ -236,7 +236,9 @@
     "server_not_running": "Le hub {hub} ne tourne pas. Démarrez-le d'abord",
     "not_a_hub": "{hub} n'est plus un hub",
     "not_joined": "Ce node n'a jamais rejoint ce hub. Enregistrez à nouveau pour le rejoindre",
-    "module_not_found": "Le hub ne connaît pas cette instance"
+    "module_not_found": "Le hub ne connaît pas cette instance",
+    "hub_on_leader": "node leader {node}",
+    "hub_on_worker": "node worker {node}"
   },
   "sessions": {
     "title": "Sessions",
