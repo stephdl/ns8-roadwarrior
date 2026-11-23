@@ -25,7 +25,8 @@
     "kill-session": "Disconnect a session",
     "disable-account": "Disable an account",
     "enable-account": "Enable an account",
-    "renew-account": "Renew a certificate"
+    "renew-account": "Renew a certificate",
+    "list-spokes": "List nodes"
   },
   "error": {
     "error": "Error",
@@ -66,7 +67,18 @@
     "connected_clients": "Connected client | Connected clients",
     "ca_expiry_title": "The VPN certificate authority expires soon",
     "ca_expiry_description": "It expires on {date}. After that date no client can connect.",
-    "go_to_sessions": "Go to sessions"
+    "go_to_sessions": "Go to sessions",
+    "hub_server_port": "Hub, UDP port {port}",
+    "spoke_of_hub": "Node of this hub, address {ip}",
+    "hub_nodes": "Nodes of the hub",
+    "hub_nodes_description": "The users reach the apps of these nodes. Filter an HTTP route on the VPN network to keep it for them.",
+    "instance": "Instance",
+    "address": "Address",
+    "link": "Link",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "remove_node": "Remove",
+    "removing_node": "Removing {module} from the hub"
   },
   "accounts": {
     "title": "Accounts",
@@ -204,7 +216,21 @@
     "instance_configuration": "Configuring {instance}",
     "restrict_apps_title": "Keep a web app for the VPN clients",
     "restrict_apps_description": "Paste this network in \"Allow access from\" of the HTTP route of the app. Only the clients of this VPN reach it then.",
-    "go_to_http_routes": "Go to HTTP routes"
+    "go_to_http_routes": "Go to HTTP routes",
+    "mode": "Role of this node",
+    "mode_standalone": "Standalone",
+    "mode_hub": "Hub",
+    "mode_spoke": "Node of a hub",
+    "mode_standalone_helper": "The users connect to this node and reach its apps and its Samba DC.",
+    "mode_hub_helper": "The users connect to this node and reach the apps of every node that joins it. The network next to the VPN network links the nodes, for example 10.8.1.0/24 next to 10.8.0.0/24.",
+    "mode_spoke_helper": "This node joins a hub through the cluster VPN. The users of the hub reach its apps and its Samba DC. It has no users and no public port.",
+    "hub": "Hub",
+    "choose_hub": "Choose the hub this node joins",
+    "no_hub_title": "No hub in the cluster",
+    "no_hub_description": "Set the role Hub on the roadwarrior instance of another node first.",
+    "hub_has_spokes": "Other nodes joined this hub. Remove them from the Status page first",
+    "accounts_exist": "This instance has VPN accounts. Remove them first",
+    "hub_not_found": "This hub does not exist anymore"
   },
   "sessions": {
     "title": "Sessions",

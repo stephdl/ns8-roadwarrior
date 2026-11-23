@@ -77,7 +77,7 @@
             </template>
           </NsInfoCard>
           <NsInfoCard
-            v-if="config.configured"
+            v-if="config.configured && config.mode !== 'spoke'"
             light
             :title="String(vpn.sessions.length)"
             :description="$tc('status.connected_clients', vpn.sessions.length)"
@@ -152,6 +152,63 @@
     <cv-row>
       <cv-column class="page-subtitle">
         <h4>{{ $t("status.failed_services") }}</h4>
+      </cv-column>
+    </cv-row>
+    <cv-row v-if="config.mode === 'hub'">
+      <cv-column>
+        <cv-tile light class="mg-bottom">
+          <h4 class="mg-bottom-sm">{{ $t("status.hub_nodes") }}</h4>
+          <p class="mg-bottom-sm">{{ $t("status.hub_nodes_description") }}</p>
+          <NsInlineNotification
+            v-if="error.listSpokes"
+            kind="error"
+            :title="$t('action.list-spokes')"
+            :description="error.listSpokes"
+            :showCloseButton="false"
+          />
+          <cv-skeleton-text
+            v-else-if="loading.listSpokes && !spokes.length"
+            :paragraph="true"
+            :line-count="3"
+          />
+          <cv-data-table
+            v-else
+            :columns="spokeColumns"
+            :data="[]"
+            :zebra="true"
+          >
+            <template slot="data">
+              <cv-data-table-row v-for="spoke in spokes" :key="spoke.module_id">
+                <cv-data-table-cell>{{
+                  spoke.node_name || $t("status.node") + " " + spoke.node_id
+                }}</cv-data-table-cell>
+                <cv-data-table-cell>{{ spoke.module_id }}</cv-data-table-cell>
+                <cv-data-table-cell>{{ spoke.ip }}</cv-data-table-cell>
+                <cv-data-table-cell>
+                  <NsTag
+                    :label="
+                      spoke.connected
+                        ? $t('status.connected')
+                        : $t('status.disconnected')
+                    "
+                    :kind="spoke.connected ? 'green' : 'red'"
+                  />
+                </cv-data-table-cell>
+                <cv-data-table-cell>
+                  <NsButton
+                    v-if="spoke.module_id !== instanceName"
+                    kind="ghost"
+                    size="small"
+                    :icon="TrashCan20"
+                    :loading="loading.removeSpoke === spoke.module_id"
+                    @click="removeSpoke(spoke.module_id)"
+                    >{{ $t("status.remove_node") }}</NsButton
+                  >
+                </cv-data-table-cell>
+              </cv-data-table-row>
+            </template>
+          </cv-data-table>
+        </cv-tile>
       </cv-column>
     </cv-row>
     <cv-row v-if="!loading.getStatus">
@@ -313,7 +370,18 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 
-const LONG_RUNNING_SERVICES = ["openvpn-server", "openvpn-dns"];
+// Services that must run once configured, for each mode
+const LONG_RUNNING_SERVICES = {
+  standalone: ["openvpn-server", "openvpn-dns"],
+  hub: [
+    "openvpn-hub",
+    "openvpn-hub-server",
+    "openvpn-hub-dns",
+    "openvpn-s2s",
+    "openvpn-spoke",
+  ],
+  spoke: ["openvpn-spoke"],
+};
 const CA_WARNING_DAYS = 90;
 
 export default {
@@ -339,7 +407,8 @@ export default {
       Restart20,
       Network_232,
       UserMultiple32,
-      config: { configured: false, host: "", port: 0 },
+      config: { configured: false, host: "", port: 0, mode: "standalone" },
+      spokes: [],
       vpn: { running: false, sessions: [], ca_expiry: "" },
       status: { instance: "", services: [], images: [], volumes: [] },
       // Hide the server state until the first answer: a default "stopped" would mislead
@@ -349,25 +418,50 @@ export default {
         getStatus: false,
         getConfiguration: false,
         getVpnStatus: false,
+        listSpokes: false,
+        removeSpoke: "",
       },
       error: {
         getStatus: "",
         getConfiguration: "",
         getVpnStatus: "",
+        listSpokes: "",
       },
     };
   },
   computed: {
     ...mapState(["instanceName", "core", "appName"]),
     vpnTitle() {
-      return this.config.configured
-        ? this.config.host
-        : this.$t("status.not_configured");
+      if (!this.config.configured) {
+        return this.$t("status.not_configured");
+      }
+      return this.config.mode === "spoke" ? this.config.hub : this.config.host;
     },
     vpnDescription() {
-      return this.config.configured
-        ? this.$t("status.vpn_server_port", { port: this.config.port })
-        : this.$t("status.vpn_server");
+      if (!this.config.configured) {
+        return this.$t("status.vpn_server");
+      }
+      if (this.config.mode === "spoke") {
+        return this.$t("status.spoke_of_hub", { ip: this.config.spoke_ip });
+      }
+      return this.$t(
+        this.config.mode === "hub"
+          ? "status.hub_server_port"
+          : "status.vpn_server_port",
+        { port: this.config.port }
+      );
+    },
+    spokeColumns() {
+      return [
+        this.$t("status.node"),
+        this.$t("status.instance"),
+        this.$t("status.address"),
+        this.$t("status.link"),
+        "",
+      ];
+    },
+    longRunningServices() {
+      return LONG_RUNNING_SERVICES[this.config.mode] || [];
     },
     caExpiry() {
       const date = new Date(this.vpn.ca_expiry);
@@ -386,7 +480,7 @@ export default {
         (service) =>
           service.failed ||
           (this.config.configured &&
-            LONG_RUNNING_SERVICES.includes(service.name) &&
+            this.longRunningServices.includes(service.name) &&
             !service.active)
       );
     },
@@ -445,6 +539,9 @@ export default {
           if (output.configured) {
             this.getVpnStatus();
           }
+          if (output.mode === "hub") {
+            this.listSpokes();
+          }
         },
         aborted: fail,
         failed: fail,
@@ -466,6 +563,45 @@ export default {
         },
         aborted: fail,
         failed: fail,
+      });
+    },
+    listSpokes() {
+      this.loading.listSpokes = true;
+      this.error.listSpokes = "";
+      const fail = (message) => {
+        this.error.listSpokes = message;
+        this.loading.listSpokes = false;
+      };
+      this.runModuleTask({
+        action: "list-spokes",
+        completed: (output) => {
+          this.spokes = output;
+          this.loading.listSpokes = false;
+        },
+        aborted: fail,
+        failed: fail,
+      });
+    },
+    removeSpoke(moduleId) {
+      this.loading.removeSpoke = moduleId;
+      const done = () => {
+        this.loading.removeSpoke = "";
+        this.listSpokes();
+      };
+      this.runModuleTask({
+        action: "remove-spoke",
+        data: { module_id: moduleId },
+        title: this.$t("status.removing_node", { module: moduleId }),
+        isNotificationHidden: false,
+        completed: done,
+        aborted: (message) => {
+          this.error.listSpokes = message;
+          done();
+        },
+        failed: (message) => {
+          this.error.listSpokes = message;
+          done();
+        },
       });
     },
     getStatus() {
