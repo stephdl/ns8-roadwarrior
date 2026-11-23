@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+# A hub resolves the app names again: a removed module may leave its names to another node.
+#
 # A restore or a move with "replace" installs the copy before it removes the original.
 # The copy stays stopped while the original holds the tun network and the UDP port, and
 # leaves a marker: once a module leaves this node, try to start it again. Without the marker
@@ -17,7 +19,15 @@ import sys
 import ovpn_module as om
 
 event = json.load(sys.stdin)
-if str(event.get("node")) != os.environ["NODE_ID"] or event.get("module") == os.environ["MODULE_ID"]:
+if event.get("module") == os.environ["MODULE_ID"]:
+    sys.exit(0)
+
+if om.mode() == "hub" and om.server_running():
+    # A move, a clone or a restore with replace ends here: the names of the removed module may now
+    # answer on another node. Traefik may still list its routes, so leave them out.
+    om.apply_runtime(om.write_runtime(skip_module=event.get("module", "")))
+
+if str(event.get("node")) != os.environ["NODE_ID"]:
     sys.exit(0)
 if not os.path.exists(om.WAITING) or om.server_running():
     sys.exit(0)

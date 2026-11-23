@@ -376,7 +376,12 @@ def samba_on_node(rdb, node_id):
     return None
 
 
-def traefik_hosts(rdb, node_id):
+def is_route_of(instance, module_id):
+    """Traefik names the routes of a module after it: the module id, or the module id and a suffix."""
+    return bool(module_id) and (instance == module_id or instance.startswith(module_id + "_"))
+
+
+def traefik_hosts(rdb, node_id, skip_module=""):
     traefik = rdb.get(f"node/{node_id}/default_instance/traefik")
     if not traefik:
         return []
@@ -384,7 +389,8 @@ def traefik_hosts(rdb, node_id):
     response = agent.tasks.run(agent_id=f"module/{traefik}", action="list-routes", data={"expand_list": True},
                                extra={"isNotificationHidden": True})
     if response["exit_code"] == 0 and isinstance(response["output"], list):
-        return sorted({route["host"] for route in response["output"] if route.get("host")})
+        return sorted({route["host"] for route in response["output"]
+                       if route.get("host") and not is_route_of(route.get("instance", ""), skip_module)})
     log(agent.SD_WARNING + f"cannot list the routes of {traefik}, using its hosts set: {response.get('error', '')}")
     return sorted(rdb.smembers(f"module/{traefik}/hosts"))
 
@@ -429,9 +435,10 @@ def vpn_domains(hosts, vpn_host):
     return domains
 
 
-def write_runtime(rdb=None):
+def write_runtime(rdb=None, skip_module=""):
     """Write the files read by the containers of the mode.
 
+    skip_module is a module just removed: Traefik may still list its routes for a moment.
     Return the set of units that must restart to apply the change.
     """
     # disabled.json comes from accounts.json: read and write them under the same lock as the actions
@@ -453,22 +460,22 @@ def write_runtime(rdb=None):
             changed.add("openvpn-spoke.service")
     if mode() == "spoke":
         return changed
-    return changed | write_server_runtime(rdb)
+    return changed | write_server_runtime(rdb, skip_module)
 
 
-def node_names(rdb, node_id, vpn_host):
+def node_names(rdb, node_id, vpn_host, skip_module=""):
     """Names of the HTTP routes of a node. The VPN host stays out, or a reconnect would look for it in the tunnel."""
-    return {h.lower() for h in traefik_hosts(rdb, node_id) if "." in h} - {vpn_host}
+    return {h.lower() for h in traefik_hosts(rdb, node_id, skip_module) if "." in h} - {vpn_host}
 
 
-def write_server_runtime(rdb):
+def write_server_runtime(rdb, skip_module=""):
     """Files of the user server and of the resolver, plus the site-to-site files of a hub."""
     conf = settings()
     node_id = os.environ["NODE_ID"]
     net, server_ip = network_parts(conf["OVPN_NETWORK"])
     vpn_host = conf["OVPN_HOST"].lower()
     # The node name serves cluster-admin and path routes: it must enter the tunnel too
-    own_names = node_names(rdb, node_id, vpn_host) | ({socket.getfqdn().lower()} - {vpn_host} if "." in socket.getfqdn() else set())
+    own_names = node_names(rdb, node_id, vpn_host, skip_module) | ({socket.getfqdn().lower()} - {vpn_host} if "." in socket.getfqdn() else set())
     push_routes = []
     dcs = []
     changed = set()
@@ -482,7 +489,7 @@ def write_server_runtime(rdb):
         dcs_by_spoke = {}
         for spoke_id, info in sorted(spokes.items()):
             if spoke_id != os.environ["MODULE_UUID"]:
-                for host in node_names(rdb, info["node_id"], vpn_host):
+                for host in node_names(rdb, info["node_id"], vpn_host, skip_module):
                     addresses.setdefault(host, info["ip"])
             expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_UUID"] else info.get("expose_samba")
             samba = samba_on_node(rdb, info["node_id"]) if expose else None
