@@ -31,6 +31,11 @@ json.dump({
     "samba_available": samba is not None,
     "server_ip": server_ip,
     # Paste it into "Allow access from" of an HTTP route to keep the app for the VPN clients
-    "ip_allowlist": net.with_prefixlen,
+    "ip_allowlist": om.users_network() or net.with_prefixlen,
     "has_accounts": bool(om.load_accounts()),
+    "mode": om.mode(),
+    "hub": conf["OVPN_HUB"],
+    "hubs": om.list_hubs(rdb),
+    # Address of this node on the link with the hub
+    "spoke_ip": om.host_tun_ip(conf) if om.mode() != "standalone" else "",
 }, fp=sys.stdout)

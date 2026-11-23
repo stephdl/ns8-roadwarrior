@@ -1,19 +1,33 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
 #
 # Copyright (C) 2026 Nethesis S.r.l.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-set -e
-exec 1>&2
+import os
+import subprocess
+import ovpn_module as om
 
-rm -f waiting-for-original
-systemctl --user enable openvpn-server.service openvpn-dns.service
-if [ -e ovpn/restart-needed ]; then
-    systemctl --user restart openvpn-server.service openvpn-dns.service
-    rm -f ovpn/restart-needed
-else
+
+def systemctl(*args):
+    subprocess.run(["systemctl", "--user", *args], check=True)
+
+
+if os.path.exists(om.WAITING):
+    os.unlink(om.WAITING)
+
+units = om.UNITS[om.mode()]
+# The units of another mode hold the same tun, port and container names
+others = [unit for unit in om.ALL_UNITS if unit not in units]
+subprocess.run(["systemctl", "--user", "disable", "--now", *others], check=False)
+
+# The spoke of a hub starts once the hub signed its certificate, in 85spoke
+servers = [unit for unit in units if not (om.mode() == "hub" and unit == "openvpn-spoke.service")]
+systemctl("enable", *units)
+if os.path.exists("ovpn/restart-needed"):
+    systemctl("restart", *servers)
+    os.unlink("ovpn/restart-needed")
+elif om.mode() != "spoke":
     # Only the resolver lists changed: no client is dropped
-    systemctl --user reload-or-restart openvpn-dns.service
-fi
+    systemctl("reload-or-restart", om.dns_unit())

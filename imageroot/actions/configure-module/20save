@@ -6,10 +6,30 @@
 #
 
 import json
+import os
 import sys
 import agent
+import ovpn_module as om
 
 request = json.load(sys.stdin)
+mode = request.get("mode", "standalone")
+
+# Leave the old hub before joining another one, or before taking users again
+old_hub = os.environ.get("OVPN_HUB", "") if om.mode() == "spoke" else ""
+if old_hub and (mode != "spoke" or request["hub"] != old_hub):
+    om.leave_hub(old_hub)
+if om.mode() == "hub" and mode != "hub":
+    # Validation left only the spoke of this node: its address goes with the link
+    om.save_spokes({})
+
+agent.set_env("OVPN_MODE", mode)
+agent.set_env("OVPN_HUB", request["hub"] if mode == "spoke" else "")
+agent.set_env("OVPN_EXPOSE_SAMBA", str(bool(request.get("expose_samba"))))
+if mode == "spoke":
+    # A spoke keeps the user settings it had, so a return to standalone finds them again
+    agent.bind_user_domains([])
+    sys.exit(0)
+
 password_mode = request["auth_mode"] == "certificate_password"
 domain = request.get("user_domain", "") if password_mode else ""
 
@@ -19,5 +39,12 @@ agent.set_env("OVPN_NETWORK", request["network"])
 agent.set_env("OVPN_AUTH_MODE", request["auth_mode"])
 agent.set_env("OVPN_USER_DOMAIN", domain)
 agent.set_env("OVPN_TOTP_REQUIRED", str(bool(request.get("totp_required")) and password_mode))
-agent.set_env("OVPN_EXPOSE_SAMBA", str(bool(request.get("expose_samba"))))
 agent.bind_user_domains([domain] if domain else [])
+
+if mode == "hub":
+    # The nodes join on the cluster VPN address of this node, on a port of the node allocator
+    rdb = agent.redis_connect(use_replica=True)
+    agent.set_env("OVPN_VPN_IP", om.node_vpn_ip(rdb, os.environ["NODE_ID"]))
+    if not os.environ.get("OVPN_S2S_PORT"):
+        ports = agent.allocate_ports(1, "udp", keep_existing=True)
+        agent.set_env("OVPN_S2S_PORT", str(ports[0]))

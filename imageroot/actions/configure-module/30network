@@ -6,7 +6,8 @@
 #
 
 # The core owns the tun, its zone and the public port: the module runs rootless and only asks for them.
-# Clients reach this node alone: no forward, so Traefik and samba see the VPN address of the client.
+# The node never forwards: Traefik and samba see the VPN address of the client. On a hub and on
+# a spoke this tun is the end of the link with the hub, and the hub forwards in its own namespace.
 
 import os
 import subprocess
@@ -15,8 +16,7 @@ import ovpn_module as om
 
 conf = om.settings()
 tun = os.environ["OVPN_TUN"]
-net, server_ip = om.network_parts(conf["OVPN_NETWORK"])
-tun_ip = f"{server_ip}/{net.prefixlen}"
+tun_ip = om.host_tun_ip(conf)
 
 # tun-manager only sets the address when it starts: a new network needs a new tun.
 # A clone or a restore lands on a node without the tun, whatever OVPN_TUN_IP says.
@@ -24,14 +24,19 @@ tun_exists = os.path.exists(f"/sys/class/net/{tun}")
 if not tun_exists or os.environ.get("OVPN_TUN_IP") != tun_ip:
     if tun_exists:
         # OpenVPN holds the tun open: tun-manager cannot delete a busy device
-        subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
+        subprocess.run(["systemctl", "--user", "stop", *om.ALL_UNITS], check=False)
         agent.remove_tun(tun)
     agent.assert_exp(agent.add_tun(tun, tun_ip), "tun creation failed")
     agent.set_env("OVPN_TUN_IP", tun_ip)
 
 # The core refuses an empty rule list. SSH stays closed to the VPN clients.
-rules = [f"rule family=ipv4 source address={net.with_prefixlen} port port=22 protocol=tcp reject"]
+rules = [f"rule family=ipv4 source address={om.users_network()} port port=22 protocol=tcp reject"]
 agent.assert_exp(agent.add_custom_zone(tun, tun, om.firewall_ports(om.is_true(conf["OVPN_EXPOSE_SAMBA"])), rules),
                  "firewall zone configuration failed")
-agent.assert_exp(agent.add_public_service(os.environ["MODULE_ID"], [f"{conf['OVPN_PORT']}/udp"], replace_ports=True),
-                 "firewall port configuration failed")
+if om.mode() == "spoke":
+    # The hub is reached through the cluster VPN: a spoke opens nothing to Internet
+    agent.remove_public_service(os.environ["MODULE_ID"])
+else:
+    # The site-to-site port of a hub listens on the cluster VPN only, already open between the nodes
+    agent.assert_exp(agent.add_public_service(os.environ["MODULE_ID"], [f"{conf['OVPN_PORT']}/udp"], replace_ports=True),
+                     "firewall port configuration failed")

@@ -15,6 +15,21 @@ import agent.ldapproxy
 import ovpn_module as om
 
 request = json.load(sys.stdin)
+mode = request.get("mode", "standalone")
+rdb = agent.redis_connect(use_replica=True)
+
+# The other nodes of a hub reach its users: they must not lose them silently
+if om.mode() == "hub" and mode != "hub":
+    if any(spoke != os.environ["MODULE_ID"] for spoke in om.load_spokes()):
+        om.fail_validation("mode", mode, "hub_has_spokes")
+
+if mode == "spoke":
+    # A spoke has no users: their profiles would stop working
+    if om.load_accounts():
+        om.fail_validation("mode", mode, "accounts_exist")
+    if request["hub"] not in [hub["module_id"] for hub in om.list_hubs(rdb)]:
+        om.fail_validation("hub", request["hub"], "hub_not_found")
+    sys.exit(0)
 
 try:
     net, _ = om.network_parts(request["network"])
@@ -22,8 +37,8 @@ except ValueError:
     om.fail_validation("network", request["network"], "invalid_network")
 if net.version != 4 or not net.is_private or not 16 <= net.prefixlen <= 28:
     om.fail_validation("network", request["network"], "network_not_allowed")
-
-rdb = agent.redis_connect(use_replica=True)
+# A hub also takes the network next to it for the link with the nodes
+wanted = om.s2s_networks(request["network"])["supernet"] if mode == "hub" else net
 # The cluster VPN and the networks of the node must stay reachable
 taken = []
 cluster_net = rdb.get("cluster/network")
@@ -35,7 +50,7 @@ for iface in addrs:
         continue
     for info in iface.get("addr_info", []):
         taken.append(ipaddress.ip_network(f"{info['local']}/{info['prefixlen']}", strict=False))
-if any(net.overlaps(other) for other in taken):
+if any(wanted.overlaps(other) for other in taken):
     om.fail_validation("network", request["network"], "network_overlap")
 
 # A running server of this instance holds its own port: that one is not a conflict

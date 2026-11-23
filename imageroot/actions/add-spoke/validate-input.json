@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "add-spoke input",
+    "$id": "http://schema.nethserver.org/roadwarrior/add-spoke-input.json",
+    "description": "A roadwarrior instance of another node joins this hub. It sends a CSR: its key never leaves its node.",
+    "examples": [
+        {
+            "csr": "-----BEGIN CERTIFICATE REQUEST-----\n...\n-----END CERTIFICATE REQUEST-----\n",
+            "expose_samba": true
+        }
+    ],
+    "type": "object",
+    "required": [
+        "csr"
+    ],
+    "properties": {
+        "csr": {
+            "type": "string",
+            "pattern": "^-----BEGIN CERTIFICATE REQUEST-----",
+            "maxLength": 8192
+        },
+        "expose_samba": {
+            "type": "boolean",
+            "description": "Open the samba DC of the node of the caller to the users of the hub"
+        }
+    }
+}

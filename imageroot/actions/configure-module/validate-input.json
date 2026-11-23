@@ -11,16 +11,16 @@
             "auth_mode": "certificate_password",
             "user_domain": "example.org",
             "totp_required": false,
+            "expose_samba": true,
+            "mode": "hub"
+        },
+        {
+            "mode": "spoke",
+            "hub": "roadwarrior1",
             "expose_samba": true
         }
     ],
     "type": "object",
-    "required": [
-        "host",
-        "port",
-        "network",
-        "auth_mode"
-    ],
     "properties": {
         "host": {
             "type": "string",
@@ -58,6 +58,43 @@
         "expose_samba": {
             "type": "boolean",
             "description": "Open the samba DC of this node to the VPN clients"
+        },
+        "mode": {
+            "type": "string",
+            "enum": [
+                "standalone",
+                "hub",
+                "spoke"
+            ],
+            "description": "standalone: the users reach this node. hub: the users reach every node that joins this instance. spoke: this node joins a hub and has no users."
+        },
+        "hub": {
+            "type": "string",
+            "pattern": "^roadwarrior[0-9]+$",
+            "description": "Instance of the hub this node joins. Required with spoke."
         }
+    },
+    "if": {
+        "properties": {
+            "mode": {
+                "const": "spoke"
+            }
+        },
+        "required": [
+            "mode"
+        ]
+    },
+    "then": {
+        "required": [
+            "hub"
+        ]
+    },
+    "else": {
+        "required": [
+            "host",
+            "port",
+            "network",
+            "auth_mode"
+        ]
     }
 }

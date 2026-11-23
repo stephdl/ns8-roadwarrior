@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Nodes registered on this hub and whether their link is up
+
+import json
+import sys
+import agent
+import ovpn_module as om
+
+spokes = om.load_json(om.SPOKES, {}) if om.mode() == "hub" else {}
+connected = {}
+if spokes:
+    # Status file of the site-to-site server, CLIENT LIST section: name,address,received,sent,since
+    proc = om.podman_exec("cat", "/etc/openvpn/run/s2s-status.log", container=om.S2S_CONTAINER, check=False)
+    section = False
+    for line in proc.stdout.splitlines():
+        if line.startswith("Common Name,"):
+            section = True
+        elif line.startswith("ROUTING TABLE"):
+            section = False
+        elif section:
+            fields = line.split(",")
+            if len(fields) >= 5:
+                connected[fields[0]] = fields[4]
+
+rdb = agent.redis_connect(use_replica=True)
+json.dump([{
+    "module_id": module_id,
+    "node_id": info["node_id"],
+    "node_name": rdb.get(f"node/{info['node_id']}/ui_name") or "",
+    "ip": info["ip"],
+    "expose_samba": bool(info.get("expose_samba")),
+    "connected": module_id in connected,
+    "connected_since": connected.get(module_id, ""),
+} for module_id, info in sorted(spokes.items())], fp=sys.stdout)

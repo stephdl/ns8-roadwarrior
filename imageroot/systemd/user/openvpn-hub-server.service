@@ -1,0 +1,39 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# User server of a hub. It creates its tun in the namespace of the hub pod.
+
+[Unit]
+Description=Podman openvpn-hub-server.service
+BindsTo=openvpn-hub.service
+After=openvpn-hub.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+Restart=always
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/openvpn-hub-server.pid %t/openvpn-hub-server.ctr-id
+ExecStartPre=runagent ovpn-write-runtime
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-hub-server.pid \
+    --cidfile %t/openvpn-hub-server.ctr-id --cgroups=no-conmon \
+    --replace -d --name openvpn-server \
+    --pod openvpn-hub \
+    --cap-add=NET_ADMIN \
+    --device /dev/net/tun \
+    --security-opt label=disable \
+    --volume openvpn-data:/etc/openvpn:z \
+    --volume ./ovpn:/run/ovpn:ro,z \
+    --volume ./secrets:/run/ovpn-secrets:ro,z \
+    ${ROADWARRIOR_SERVER_IMAGE} openvpn
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-hub-server.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-hub-server.ctr-id
+PIDFile=%t/openvpn-hub-server.pid
+SyslogIdentifier=%u
+
+[Install]
+WantedBy=default.target

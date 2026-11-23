@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A node leaves this hub. A roadwarrior instance removes itself only, the admin removes any node.
+
+import json
+import os
+import sys
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+caller = os.environ.get("AGENT_TASK_USER", "")
+if caller.startswith("module/"):
+    module_id = caller.removeprefix("module/")
+else:
+    module_id = request.get("module_id", "")
+if module_id == os.environ["MODULE_ID"]:
+    # The spoke of this node leaves with the hub mode, in configure-module
+    om.fail_validation("module_id", module_id, "own_spoke")
+if om.unregister_spoke(module_id):
+    changed = om.write_runtime()
+    # A node still connected keeps its session until the server reads the new CRL
+    changed.add("openvpn-s2s.service")
+    om.apply_runtime(changed)

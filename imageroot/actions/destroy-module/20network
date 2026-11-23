@@ -8,9 +8,15 @@
 import os
 import subprocess
 import agent
+import ovpn_module as om
 
 # The core stops the services later, at 50destroy: while OpenVPN holds the tun, remove-tun fails with "busy"
-subprocess.run(["systemctl", "--user", "stop", "openvpn-server.service", "openvpn-dns.service"], check=False)
+subprocess.run(["systemctl", "--user", "stop", *om.ALL_UNITS], check=False)
+
+if om.mode() == "spoke" and os.environ.get("OVPN_HUB"):
+    om.leave_hub(os.environ["OVPN_HUB"])
+if os.environ.get("OVPN_S2S_PORT"):
+    agent.deallocate_ports("udp")
 
 # The zone and the tun belong to the node: they outlive the module unless removed here
 tun = os.environ.get("OVPN_TUN")

@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A spoke gets its address on the link from the hub, before the core creates its tun with it
+
+import os
+import agent
+import ovpn_module as om
+
+if om.mode() != "spoke":
+    raise SystemExit(0)
+
+joined = om.join_hub(os.environ["OVPN_HUB"], om.is_true(os.environ.get("OVPN_EXPOSE_SAMBA")))
+om.save_spoke_certs(joined["ca"], joined["cert"])
+agent.set_env("OVPN_SPOKE_IP", joined["ip"])
+agent.set_env("OVPN_RW_NETWORK", joined["rw_network"])

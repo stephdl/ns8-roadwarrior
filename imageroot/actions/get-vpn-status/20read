@@ -6,8 +6,15 @@
 #
 
 import json
+import subprocess
 import sys
 import ovpn_module as om
+
+if om.mode() == "spoke":
+    # A spoke has no users: its state is the one of its link with the hub
+    running = subprocess.run(["systemctl", "--user", "-q", "is-active", "openvpn-spoke.service"]).returncode == 0
+    json.dump({"running": running, "sessions": [], "ca_expiry": ""}, fp=sys.stdout)
+    sys.exit(0)
 
 status = {"running": om.server_running(), "sessions": [], "ca_expiry": ""}
 if status["running"]:

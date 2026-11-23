@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Other roadwarrior instances join this one as nodes of a hub. The label
+# roadwarrior@any:spokeadm grants them this role, the actions refuse it when this instance is no hub.
+exec redis-exec SADD "${AGENT_ID}/roles/spokeadm" "add-spoke" "remove-spoke"

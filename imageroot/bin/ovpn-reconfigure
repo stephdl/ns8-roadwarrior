@@ -21,23 +21,28 @@ import agent
 import ovpn_module as om
 
 conf = om.settings()
-if not conf["OVPN_HOST"]:
+if om.mode() == "spoke":
+    data = {"mode": "spoke", "hub": os.environ.get("OVPN_HUB", ""),
+            "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"])}
+elif not conf["OVPN_HOST"]:
     sys.exit(0)
-data = {
-    "host": conf["OVPN_HOST"],
-    "port": int(conf["OVPN_PORT"]),
-    "network": conf["OVPN_NETWORK"],
-    "auth_mode": conf["OVPN_AUTH_MODE"],
-    "user_domain": conf["OVPN_USER_DOMAIN"],
-    "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
-    "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
-}
+else:
+    data = {
+        "mode": om.mode(),
+        "host": conf["OVPN_HOST"],
+        "port": int(conf["OVPN_PORT"]),
+        "network": conf["OVPN_NETWORK"],
+        "auth_mode": conf["OVPN_AUTH_MODE"],
+        "user_domain": conf["OVPN_USER_DOMAIN"],
+        "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
+        "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+    }
 # Errors an original instance on the same node causes, and that its removal clears
 CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
 
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
-    subprocess.run(["systemctl", "--user", "disable", "--now", "openvpn-server.service", "openvpn-dns.service"], check=False)
+    subprocess.run(["systemctl", "--user", "disable", "--now", *om.ALL_UNITS], check=False)
     errors = response["output"] if isinstance(response["output"], list) else []
     if errors and all((e.get("parameter"), e.get("error")) in CONFLICTS for e in errors):
         open(om.WAITING, "w").close()

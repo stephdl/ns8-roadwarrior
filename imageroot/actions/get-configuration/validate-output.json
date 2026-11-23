@@ -19,7 +19,11 @@
             "samba_available": true,
             "server_ip": "10.8.0.1",
             "ip_allowlist": "10.8.0.0/24",
-            "has_accounts": false
+            "has_accounts": false,
+            "mode": "standalone",
+            "hub": "",
+            "hubs": [],
+            "spoke_ip": ""
         }
     ],
     "type": "object",
@@ -84,6 +88,37 @@
         },
         "has_accounts": {
             "type": "boolean"
+        },
+        "mode": {
+            "type": "string",
+            "enum": [
+                "standalone",
+                "hub",
+                "spoke"
+            ]
+        },
+        "hub": {
+            "type": "string"
+        },
+        "spoke_ip": {
+            "type": "string"
+        },
+        "hubs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "module_id": {
+                        "type": "string"
+                    },
+                    "node_id": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    }
+                }
+            }
         }
     }
 }
