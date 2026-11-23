@@ -341,8 +341,10 @@ def samba_on_node(rdb, node_id):
     for key in rdb.scan_iter("module/*/environment"):
         module_id = key.split("/")[1]
         env = rdb.hgetall(key)
-        if env.get("NODE_ID") == str(node_id) and env.get("REALM") and env.get("IPADDRESS") \
-                and "account_provider" in rdb.smembers(f"module/{module_id}/flags"):
+        # Some samba releases drop the account_provider flag: the DC still publishes its ldap service
+        is_dc = "account_provider" in rdb.smembers(f"module/{module_id}/flags") \
+            or rdb.hget(f"module/{module_id}/srv/tcp/ldap", "schema") == "ad"
+        if env.get("NODE_ID") == str(node_id) and env.get("REALM") and env.get("IPADDRESS") and is_dc:
             return module_id, env["REALM"].lower(), env["IPADDRESS"]
     return None
 
