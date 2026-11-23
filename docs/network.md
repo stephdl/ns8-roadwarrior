@@ -266,9 +266,15 @@ The resolver of the hub answers each app name with the address of the spoke of t
 
 ### Joining
 
-A spoke sends a certificate request to the hub with the `add-spoke` action. Its key never leaves its node. The hub signs it with the CA of the link, which is apart from the CA of the users, and gives back the address of the node. The core grants `add-spoke` and `remove-spoke` to every roadwarrior instance with the `spokeadm` role. The hub refuses a caller that is not a roadwarrior instance.
+No instance has rights on another one. The admin, or the UI of the node, carries the request:
 
-A spoke follows its hub when it moves: it reads the cluster VPN address of the hub node at each start.
+1. `request-spoke-certificate` on the node makes its key, once, and returns a certificate request. The key never leaves the node.
+2. `add-spoke` on the hub signs it with the CA of the link, which is apart from the CA of the users, and returns the address of the node.
+3. `configure-module` on the node takes that answer as `join`.
+
+The node keeps the answer in its backup, so a restore or a new save needs no new join. A spoke follows its hub when it moves: it reads the cluster VPN address of the hub node at each start. A hub restored or cloned gets a new instance id: join the nodes again.
+
+`remove-spoke` on the hub revokes the certificate of a node. The node keeps trying until its role changes.
 
 ### Throughput
 

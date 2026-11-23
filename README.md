@@ -45,11 +45,13 @@ Install one instance per node that runs apps you want to reach through the VPN.
 - `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
 
-Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
 
-To set up a hub, configure the instance of the entry node with `"mode": "hub"`. Then on each other node, configure its instance with:
+To set up a hub, configure the instance of the entry node with `"mode": "hub"`. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
 
-    api-cli run configure-module --agent module/roadwarrior2 --data '{"mode": "spoke", "hub": "roadwarrior1", "expose_samba": true}'
+    csr=$(api-cli run request-spoke-certificate --agent module/roadwarrior2 | jq .csr)
+    join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr, \"expose_samba\": true}")
+    api-cli run configure-module --agent module/roadwarrior2 --data "{\"mode\": \"spoke\", \"hub\": \"roadwarrior1\", \"expose_samba\": true, \"join\": $join}"
 
 `list-spokes` on the hub lists the nodes and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
 
