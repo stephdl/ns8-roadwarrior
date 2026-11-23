@@ -173,9 +173,14 @@
           >
             <template slot="data">
               <cv-data-table-row v-for="spoke in spokes" :key="spoke.module_id">
-                <cv-data-table-cell>{{
-                  spoke.node_name || $t("status.node") + " " + spoke.node_id
-                }}</cv-data-table-cell>
+                <cv-data-table-cell
+                  >{{
+                    spoke.node_name || $t("status.node") + " " + spoke.node_id
+                  }}
+                  ({{
+                    spoke.leader ? $t("status.leader") : $t("status.worker")
+                  }})</cv-data-table-cell
+                >
                 <cv-data-table-cell>{{ spoke.module_id }}</cv-data-table-cell>
                 <cv-data-table-cell>{{ spoke.ip }}</cv-data-table-cell>
                 <cv-data-table-cell>

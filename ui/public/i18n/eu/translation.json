@@ -80,7 +80,9 @@
     "connected": "Konektatuta",
     "disconnected": "Deskonektatuta",
     "remove_node": "Kendu",
-    "removing_node": "{module} hub-etik kentzen"
+    "removing_node": "{module} hub-etik kentzen",
+    "leader": "liderra",
+    "worker": "worker"
   },
   "accounts": {
     "title": "Kontuak",

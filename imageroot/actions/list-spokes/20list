@@ -13,6 +13,7 @@ import agent
 import ovpn_module as om
 
 rdb = agent.redis_connect(use_replica=True)
+leader_id = rdb.hget("cluster/environment", "NODE_ID")
 spokes = om.current_spokes(rdb) if om.mode() == "hub" else {}
 connected = {}
 if spokes:
@@ -33,6 +34,7 @@ json.dump([{
     "module_id": info["module_id"],
     "node_id": info["node_id"],
     "node_name": rdb.get(f"node/{info['node_id']}/ui_name") or "",
+    "leader": info["node_id"] == leader_id,
     "ip": info["ip"],
     "expose_samba": bool(info.get("expose_samba")),
     "connected": uuid in connected,

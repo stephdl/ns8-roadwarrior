@@ -80,7 +80,9 @@
     "connected": "Verbunden",
     "disconnected": "Getrennt",
     "remove_node": "Entfernen",
-    "removing_node": "{module} wird aus dem Hub entfernt"
+    "removing_node": "{module} wird aus dem Hub entfernt",
+    "leader": "Leader",
+    "worker": "Worker"
   },
   "accounts": {
     "title": "Konten",

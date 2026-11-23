@@ -80,7 +80,9 @@
     "connected": "Connecté",
     "disconnected": "Déconnecté",
     "remove_node": "Retirer",
-    "removing_node": "Retrait de {module} du hub"
+    "removing_node": "Retrait de {module} du hub",
+    "leader": "leader",
+    "worker": "worker"
   },
   "accounts": {
     "title": "Comptes",
