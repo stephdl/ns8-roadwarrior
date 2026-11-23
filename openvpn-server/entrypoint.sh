@@ -169,7 +169,11 @@ ca /run/ovpn/spoke-ca.crt
 cert /run/ovpn/spoke.crt
 key /run/ovpn-secrets/spoke.key
 data-ciphers ${data_ciphers}
-keepalive 10 60
+# Exit instead of a soft restart: systemd starts the client again and reads the address and port
+# of the hub again, which a restore or a move of the hub changes
+pull-filter ignore "ping-restart"
+ping 10
+ping-exit 60
 verb 3
 EOF
     exec openvpn --config /tmp/spoke.conf

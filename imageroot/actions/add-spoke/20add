@@ -20,11 +20,12 @@ if om.mode() != "hub":
     om.fail_validation("module_id", module_id, "not_a_hub")
 rdb = agent.redis_connect(use_replica=True)
 node_id = rdb.hget("cluster/module_node", module_id)
-if module_id == os.environ["MODULE_ID"] or not node_id:
+uuid = rdb.hget(f"module/{module_id}/environment", "MODULE_UUID")
+if module_id == os.environ["MODULE_ID"] or not node_id or not uuid:
     om.fail_validation("module_id", module_id, "module_not_found")
 if not om.server_running():
     om.fail_validation("module_id", module_id, "server_not_running")
 
-joined = om.register_spoke(module_id, node_id, request["csr"], request.get("expose_samba", False))
+joined = om.register_spoke(module_id, uuid, node_id, request["csr"], request.get("expose_samba", False))
 om.apply_runtime(om.write_runtime(rdb))
 json.dump(joined, fp=sys.stdout)

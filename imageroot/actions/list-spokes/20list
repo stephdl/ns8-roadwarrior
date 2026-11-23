@@ -12,7 +12,8 @@ import sys
 import agent
 import ovpn_module as om
 
-spokes = om.load_json(om.SPOKES, {}) if om.mode() == "hub" else {}
+rdb = agent.redis_connect(use_replica=True)
+spokes = om.current_spokes(rdb) if om.mode() == "hub" else {}
 connected = {}
 if spokes:
     # Status file of the site-to-site server, CLIENT LIST section: name,address,received,sent,since
@@ -28,13 +29,12 @@ if spokes:
             if len(fields) >= 5:
                 connected[fields[0]] = fields[4]
 
-rdb = agent.redis_connect(use_replica=True)
 json.dump([{
-    "module_id": module_id,
+    "module_id": info["module_id"],
     "node_id": info["node_id"],
     "node_name": rdb.get(f"node/{info['node_id']}/ui_name") or "",
     "ip": info["ip"],
     "expose_samba": bool(info.get("expose_samba")),
-    "connected": module_id in connected,
-    "connected_since": connected.get(module_id, ""),
-} for module_id, info in sorted(spokes.items())], fp=sys.stdout)
+    "connected": uuid in connected,
+    "connected_since": connected.get(uuid, ""),
+} for uuid, info in sorted(spokes.items(), key=lambda item: item[1]["module_id"])], fp=sys.stdout)

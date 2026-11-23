@@ -11,6 +11,7 @@
 import json
 import os
 import sys
+import agent
 import ovpn_module as om
 
 event = json.load(sys.stdin)
@@ -18,7 +19,7 @@ if not om.is_configured() or om.mode() == "spoke":
     sys.exit(0)
 nodes = {os.environ["NODE_ID"]}
 if om.mode() == "hub":
-    nodes |= {info["node_id"] for info in om.load_spokes().values()}
+    nodes |= {info["node_id"] for info in om.current_spokes(agent.redis_connect(use_replica=True)).values()}
 if str(event.get("node_id")) not in nodes:
     sys.exit(0)
 # A new domain changes what the server pushes: clients reconnect on their own

@@ -35,9 +35,10 @@ CCD_DIR = "ovpn/ccd"
 SPOKE_CA = "ovpn/spoke-ca.crt"
 SPOKE_CERT = "ovpn/spoke.crt"
 SPOKE_KEY = "secrets/spoke.key"
-# What the hub gave this node when it joined: {"hub", "ip", "rw_network", "ca", "cert"}
+# What the hub gave this node when it joined: {"hub", "hub_uuid", "ip", "rw_network", "ca", "cert"}
 SPOKE_JOIN = "spoke.json"
-# Nodes registered on a hub: {module_id: {"node_id", "ip", "expose_samba"}}
+# Nodes registered on a hub: {module_uuid: {"module_id", "node_id", "ip", "expose_samba"}}.
+# The uuid is the key: a restore in place changes the module id, never the uuid.
 SPOKES = "spokes.json"
 # Names of the tun devices inside the network namespace of the hub pod
 HUB_RW_TUN = "tunrw"
@@ -188,14 +189,41 @@ def node_vpn_ip(rdb, node_id):
 
 
 def list_hubs(rdb):
-    """Hubs of the cluster a node can join: [{"module_id", "node_id", "host"}]."""
+    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "host"}]."""
     hubs = []
     for key in rdb.scan_iter("module/roadwarrior*/environment"):
         env = rdb.hgetall(key)
         module_id = key.split("/")[1]
         if env.get("OVPN_MODE") == "hub" and module_id != os.environ.get("MODULE_ID"):
-            hubs.append({"module_id": module_id, "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", "")})
+            hubs.append({"module_id": module_id, "module_uuid": env.get("MODULE_UUID", ""),
+                         "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", "")})
     return sorted(hubs, key=lambda h: h["module_id"])
+
+
+def roadwarrior_instances(rdb):
+    """Current {module_uuid: (module_id, node_id)} of the roadwarrior instances of the cluster."""
+    instances = {}
+    for key in rdb.scan_iter("module/roadwarrior*/environment"):
+        uuid, node_id = rdb.hmget(key, "MODULE_UUID", "NODE_ID")
+        if uuid:
+            instances[uuid] = (key.split("/")[1], node_id or "")
+    return instances
+
+
+def current_spokes(rdb):
+    """Registered nodes with their current module id and node: a restore or a move changes them."""
+    spokes = load_json(SPOKES, {})
+    instances = roadwarrior_instances(rdb)
+    for uuid, info in spokes.items():
+        if uuid in instances:
+            info["module_id"], info["node_id"] = instances[uuid]
+    return spokes
+
+
+def current_hub(rdb):
+    """Module id of the hub this node joined, found again by its uuid after a restore of the hub."""
+    hub_uuid = load_join().get("hub_uuid", "")
+    return roadwarrior_instances(rdb).get(hub_uuid, (os.environ.get("OVPN_HUB", ""), ""))[0]
 
 
 def load_spokes():
@@ -208,13 +236,13 @@ def save_spokes(spokes):
     save_json(SPOKES, spokes)
 
 
-def assign_spoke_ip(spokes, module_id, conf=None):
+def assign_spoke_ip(spokes, uuid, conf=None):
     """Keep the address of a node that joins again, else take the first free one."""
     conf = conf or settings()
-    if module_id in spokes:
-        return spokes[module_id]["ip"]
+    if uuid in spokes:
+        return spokes[uuid]["ip"]
     link = s2s_networks(conf["OVPN_NETWORK"])
-    if module_id == os.environ["MODULE_ID"]:
+    if uuid == os.environ["MODULE_UUID"]:
         return link["local_ip"]
     taken = {link["hub_ip"], link["local_ip"]} | {info["ip"] for info in spokes.values()}
     for host in link["s2s"].hosts():
@@ -223,36 +251,37 @@ def assign_spoke_ip(spokes, module_id, conf=None):
     raise RuntimeError("no free address left in the site-to-site network")
 
 
-def sign_spoke(module_id, csr):
+def sign_spoke(name, csr):
     """Sign the CSR of a node with the site-to-site CA. Return (ca, cert)."""
     # The server container creates the PKI when it starts: give it some time after a restart
     for _ in range(30):
-        proc = podman_exec("ovpn-pki", "s2s-sign", module_id, input=csr, container=S2S_CONTAINER, check=False)
+        proc = podman_exec("ovpn-pki", "s2s-sign", name, input=csr, container=S2S_CONTAINER, check=False)
         if proc.returncode == 0:
             break
         time.sleep(2)
     else:
-        raise RuntimeError(f"cannot sign the certificate of {module_id}")
+        raise RuntimeError(f"cannot sign the certificate of {name}")
     cert = proc.stdout
     ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER).stdout
     return ca, cert
 
 
-def register_spoke(module_id, node_id, csr, expose_samba):
+def register_spoke(module_id, uuid, node_id, csr, expose_samba):
     """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
     conf = settings()
     spokes = load_spokes()
-    if module_id == os.environ["MODULE_ID"]:
-        # A restored or cloned hub has a new id: its own spoke under the old id goes
+    if uuid == os.environ["MODULE_UUID"]:
+        # A cloned hub has a new uuid: its own spoke under the old one goes
         local_ip = s2s_networks(conf["OVPN_NETWORK"])["local_ip"]
-        spokes = {k: v for k, v in spokes.items() if k == module_id or v["ip"] != local_ip}
-    ip = assign_spoke_ip(spokes, module_id, conf)
-    ca, cert = sign_spoke(module_id, csr)
-    spokes[module_id] = {"node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba)}
+        spokes = {k: v for k, v in spokes.items() if k == uuid or v["ip"] != local_ip}
+    ip = assign_spoke_ip(spokes, uuid, conf)
+    ca, cert = sign_spoke(uuid, csr)
+    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba)}
     save_spokes(spokes)
     link = s2s_networks(conf["OVPN_NETWORK"])
     return {
         "hub": os.environ["MODULE_ID"],
+        "hub_uuid": os.environ["MODULE_UUID"],
         "ip": f"{ip}/{link['supernet'].prefixlen}",
         "rw_network": conf["OVPN_NETWORK"],
         "ca": ca,
@@ -260,11 +289,15 @@ def register_spoke(module_id, node_id, csr, expose_samba):
     }
 
 
-def unregister_spoke(module_id):
+def unregister_spoke(rdb, module_id):
+    """Remove a node by its current module id, or by the last one known when it is gone."""
     spokes = load_spokes()
-    if spokes.pop(module_id, None) is None:
+    current = current_spokes(rdb)
+    uuid = next((u for u, info in current.items() if info["module_id"] == module_id), None)
+    if uuid is None:
         return False
-    podman_exec("ovpn-pki", "s2s-revoke", module_id, container=S2S_CONTAINER, check=False)
+    spokes.pop(uuid)
+    podman_exec("ovpn-pki", "s2s-revoke", uuid, container=S2S_CONTAINER, check=False)
     save_spokes(spokes)
     return True
 
@@ -283,7 +316,7 @@ def spoke_key_and_csr():
         write_private(SPOKE_KEY, key.private_bytes(
             serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
             serialization.NoEncryption()).decode())
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, os.environ["MODULE_ID"])])
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, os.environ["MODULE_UUID"])])
     csr = x509.CertificateSigningRequestBuilder().subject_name(name).sign(key, hashes.SHA256())
     return csr.public_bytes(serialization.Encoding.PEM).decode()
 
@@ -309,7 +342,7 @@ def spoke_hub_endpoint(rdb):
         hub, node_id = os.environ["MODULE_ID"], os.environ["NODE_ID"]
         port = os.environ.get("OVPN_S2S_PORT", "")
     else:
-        hub = os.environ.get("OVPN_HUB", "")
+        hub = current_hub(rdb)
         node_id = rdb.hget("cluster/module_node", hub) or ""
         port = rdb.hget(f"module/{hub}/environment", "OVPN_S2S_PORT") or ""
     return node_vpn_ip(rdb, node_id), port
@@ -435,17 +468,17 @@ def write_server_runtime(rdb):
     changed = set()
     if mode() == "hub":
         link = s2s_networks(conf["OVPN_NETWORK"])
-        spokes = load_json(SPOKES, {})
+        spokes = current_spokes(rdb)
         # Each name answers with the address of the node that serves it, the hub node first
         addresses = {}
         for host in own_names:
             addresses[host] = link["local_ip"]
         dcs_by_spoke = {}
         for spoke_id, info in sorted(spokes.items()):
-            if spoke_id != os.environ["MODULE_ID"]:
+            if spoke_id != os.environ["MODULE_UUID"]:
                 for host in node_names(rdb, info["node_id"], vpn_host):
                     addresses.setdefault(host, info["ip"])
-            expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_ID"] else info.get("expose_samba")
+            expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_UUID"] else info.get("expose_samba")
             samba = samba_on_node(rdb, info["node_id"]) if expose else None
             if samba:
                 dcs.append(samba)

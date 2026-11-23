@@ -22,7 +22,7 @@ import ovpn_module as om
 
 conf = om.settings()
 if om.mode() == "spoke":
-    data = {"mode": "spoke", "hub": os.environ.get("OVPN_HUB", ""),
+    data = {"mode": "spoke", "hub": om.current_hub(agent.redis_connect(use_replica=True)),
             "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"])}
 elif not conf["OVPN_HOST"]:
     sys.exit(0)
