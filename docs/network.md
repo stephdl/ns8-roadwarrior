@@ -103,7 +103,7 @@ flowchart LR
 
 The node does not forward packets from the tun zone. So a client reaches the services of this node only. The default route of the client stays on its own network: its Internet traffic does not enter the VPN.
 
-Reaching other nodes, the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it. It waits for a core action, planned for a later version.
+Reaching the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it. Other nodes of the cluster are reached with [a hub](#a-hub-and-its-nodes), which forwards in its own network namespace.
 
 ## Keeping an app for the VPN clients
 
@@ -210,6 +210,69 @@ flowchart LR
     user -- "profile 1" --> rw1 --> a1
     user -- "profile 2" --> rw2 --> a2
 ```
+
+## A hub and its nodes
+
+One instance is the hub: the users connect to it, with one profile. Each other node that serves apps runs an instance with the role "node of a hub", a spoke. The spoke has no users and no public port: it joins the hub through the cluster VPN. The users of the hub then reach the apps and the Samba DC of every spoke.
+
+```mermaid
+flowchart TB
+    user["user 10.8.0.5<br/>one profile"]
+
+    subgraph n1["node 1"]
+        subgraph pod["hub pod, private network namespace"]
+            rw["user server<br/>tunrw 10.8.0.1/24"]
+            fw{"nft forward<br/>users to nodes only"}
+            s2s["link server<br/>tuns2s 10.8.1.1/24"]
+            dns["resolver 10.8.0.1"]
+        end
+        sp1["spoke of node 1<br/>tun 10.8.1.2/23"]
+        a1["apps of node 1"]
+    end
+
+    subgraph n2["node 2"]
+        sp2["spoke of node 2<br/>tun 10.8.1.3/23"]
+        a2["apps and Samba DC of node 2"]
+    end
+
+    user -- "Internet, UDP port of the hub" --> rw --> fw --> s2s
+    s2s -- "cluster VPN" --> sp1 --> a1
+    s2s -- "cluster VPN" --> sp2 --> a2
+```
+
+The core never forwards between two zones of a node. So the hub runs its two tunnels in a private network namespace, owned by the module, and forwards there with its own nft rules. The firewall of the node is not involved. The rules let a user open a connection to a node, and nothing else: users never reach each other, and a node never opens a connection to a user.
+
+The hub does no NAT. Every node sees the real VPN address of the client, for example `10.8.0.5`, and an HTTP route of any node filters with "Allow access from" set to the VPN network. The spoke tun takes the prefix of both networks, here `/23`, so the replies go back into the tunnel with no extra route.
+
+The hub also runs a spoke for its own node: from the private namespace, the apps of the node are reached like those of the others.
+
+### Addresses
+
+The link takes the network next to the VPN network, in the same supernet. With `10.8.0.0/24`:
+
+| Address | Role |
+|---|---|
+| `10.8.0.1` | user server and resolver of the hub |
+| `10.8.0.2` and up | users |
+| `10.8.1.1` | link server of the hub |
+| `10.8.1.2` | spoke of the hub node |
+| `10.8.1.3` and up | spokes of the other nodes, in the order they join |
+
+The validation of the hub refuses a VPN network whose supernet overlaps a node network or the cluster VPN.
+
+### DNS
+
+The resolver of the hub answers each app name with the address of the spoke of the node that serves it. When a spoke opens its Samba DC, the realm is forwarded to the DC, and the hub pushes a route to the DC address through that node.
+
+### Joining
+
+A spoke sends a certificate request to the hub with the `add-spoke` action. Its key never leaves its node. The hub signs it with the CA of the link, which is apart from the CA of the users, and gives back the address of the node. The core grants `add-spoke` and `remove-spoke` to every roadwarrior instance with the `spokeadm` role. The hub refuses a caller that is not a roadwarrior instance.
+
+A spoke follows its hub when it moves: it reads the cluster VPN address of the hub node at each start.
+
+### Throughput
+
+A packet crosses three OpenVPN processes, the user server, the link server and the spoke, and two pasta translations. On test VMs a client reached about 300 Mbit/s to another node, over HTTP, HTTPS and SMB, against about 880 Mbit/s to a standalone instance. Kernel DCO would cut this cost, but a rootless module cannot add a DCO peer.
 
 ## A web app of another node
 

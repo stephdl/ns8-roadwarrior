@@ -6,7 +6,7 @@ Remote users connect to one node. They reach the web apps of that node through T
 
 See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
 
-The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
+The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach the LAN or Internet through the VPN. With [a hub](docs/network.md#a-hub-and-its-nodes) they reach the other nodes of the cluster.
 
 The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
 
@@ -32,7 +32,10 @@ Install one instance per node that runs apps you want to reach through the VPN.
     }
     EOF
 
-`host`, `port`, `network` and `auth_mode` are required.
+`host`, `port`, `network` and `auth_mode` are required, except for a node of a hub.
+
+- `mode`: `standalone` (default), `hub` or `spoke`. See [A hub and its nodes](docs/network.md#a-hub-and-its-nodes).
+- `hub`: with `spoke`, the instance of the hub this node joins. A spoke sends only `mode`, `hub` and `expose_samba`.
 
 - `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
 - `port`: UDP port, from 1024 to 65535.
@@ -42,7 +45,13 @@ Install one instance per node that runs apps you want to reach through the VPN.
 - `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
 
-Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`.
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
+
+To set up a hub, configure the instance of the entry node with `"mode": "hub"`. Then on each other node, configure its instance with:
+
+    api-cli run configure-module --agent module/roadwarrior2 --data '{"mode": "spoke", "hub": "roadwarrior1", "expose_samba": true}'
+
+`list-spokes` on the hub lists the nodes and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
 
 While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. The errors are `host_locked`, `port_locked`, `network_locked` and `auth_mode_locked`. Host, port and login prompt are written in every profile already sent, and the network in the HTTP route allowlists. Remove all the accounts to change them.
 
