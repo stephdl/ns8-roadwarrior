@@ -82,7 +82,8 @@
     "remove_node": "Remove",
     "removing_node": "Removing {module} from the hub",
     "leader": "leader",
-    "worker": "worker"
+    "worker": "worker",
+    "vpn_address": "Node address in the VPN: {ip}"
   },
   "accounts": {
     "title": "Accounts",

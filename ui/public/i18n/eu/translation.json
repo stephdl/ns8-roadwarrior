@@ -82,7 +82,8 @@
     "remove_node": "Kendu",
     "removing_node": "{module} hub-etik kentzen",
     "leader": "liderra",
-    "worker": "worker"
+    "worker": "worker",
+    "vpn_address": "Nodoaren helbidea VPNan: {ip}"
   },
   "accounts": {
     "title": "Kontuak",

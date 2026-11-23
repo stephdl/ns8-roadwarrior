@@ -82,7 +82,8 @@
     "remove_node": "Quitar",
     "removing_node": "Quitando {module} del hub",
     "leader": "líder",
-    "worker": "worker"
+    "worker": "worker",
+    "vpn_address": "Dirección del nodo en la VPN: {ip}"
   },
   "accounts": {
     "title": "Cuentas",

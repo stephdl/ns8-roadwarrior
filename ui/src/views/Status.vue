@@ -57,6 +57,9 @@
           >
             <template slot="content">
               <div class="card-rows">
+                <div v-if="vpnAddress" class="card-row">
+                  {{ $t("status.vpn_address", { ip: vpnAddress }) }}
+                </div>
                 <div v-if="config.configured" class="card-row">
                   <NsTag
                     v-if="vpnLoaded"
@@ -441,6 +444,15 @@ export default {
         return this.$t("status.not_configured");
       }
       return this.config.mode === "spoke" ? this.config.hub : this.config.host;
+    },
+    vpnAddress() {
+      // Address of this node for the VPN users: through its spoke on a hub, the server address otherwise
+      if (!this.config.configured || this.config.mode === "spoke") {
+        return "";
+      }
+      return this.config.mode === "hub"
+        ? (this.config.spoke_ip || "").split("/")[0]
+        : this.config.server_ip;
     },
     vpnDescription() {
       if (!this.config.configured) {
