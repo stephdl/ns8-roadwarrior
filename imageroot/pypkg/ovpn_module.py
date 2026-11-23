@@ -380,6 +380,12 @@ def traefik_hosts(rdb, node_id):
     traefik = rdb.get(f"node/{node_id}/default_instance/traefik")
     if not traefik:
         return []
+    # The hosts set keeps the name of a route moved to another node: ask Traefik for its real routes
+    response = agent.tasks.run(agent_id=f"module/{traefik}", action="list-routes", data={"expand_list": True},
+                               extra={"isNotificationHidden": True})
+    if response["exit_code"] == 0 and isinstance(response["output"], list):
+        return sorted({route["host"] for route in response["output"] if route.get("host")})
+    log(agent.SD_WARNING + f"cannot list the routes of {traefik}, using its hosts set: {response.get('error', '')}")
     return sorted(rdb.smembers(f"module/{traefik}/hosts"))
 
 
