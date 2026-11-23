@@ -22,7 +22,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-hub-dns.pid \
     --cidfile %t/openvpn-hub-dns.ctr-id --cgroups=no-conmon \
     --replace -d --name openvpn-dns \
     --pod openvpn-hub \
-    --volume ./ovpn:/run/ovpn:ro,z
+    --volume ./ovpn:/run/ovpn:ro,z \
     ${ROADWARRIOR_SERVER_IMAGE} dnsmasq
 # dnsmasq reads the hosts file again on SIGHUP
 ExecReload=/usr/bin/podman kill -s HUP openvpn-dns
