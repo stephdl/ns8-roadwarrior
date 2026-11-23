@@ -46,7 +46,7 @@ buildah add "${container}" ui/dist /ui
 buildah config --entrypoint=/ \
     --label="org.nethserver.authorizations=node:tunadm,portsadm cluster:accountconsumer roadwarrior@any:spokeadm" \
     --label="org.nethserver.tcp-ports-demand=0" \
-    --label="org.nethserver.udp-ports-demand=0" \
+    --label="org.nethserver.udp-ports-demand=1" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.max-per-node=1" \
     --label="org.nethserver.images=${repobase}/roadwarrior-server:${IMAGETAG:-latest}" \

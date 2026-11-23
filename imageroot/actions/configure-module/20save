@@ -45,6 +45,5 @@ if mode == "hub":
     # The nodes join on the cluster VPN address of this node, on a port of the node allocator
     rdb = agent.redis_connect(use_replica=True)
     agent.set_env("OVPN_VPN_IP", om.node_vpn_ip(rdb, os.environ["NODE_ID"]))
-    if not os.environ.get("OVPN_S2S_PORT"):
-        ports = agent.allocate_ports(1, "udp", keep_existing=True)
-        agent.set_env("OVPN_S2S_PORT", str(ports[0]))
+    # The core reserved this port at install, from the udp-ports-demand label
+    agent.set_env("OVPN_S2S_PORT", os.environ["UDP_PORT"])
