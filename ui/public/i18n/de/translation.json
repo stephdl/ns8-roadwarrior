@@ -25,7 +25,10 @@
     "kill-session": "Sitzung trennen",
     "disable-account": "Konto deaktivieren",
     "enable-account": "Konto aktivieren",
-    "renew-account": "Zertifikat erneuern"
+    "renew-account": "Zertifikat erneuern",
+    "list-spokes": "Knoten auflisten",
+    "request-spoke-certificate": "Zertifikat für den Beitritt zu einem Hub anfordern",
+    "add-spoke": "Einem Hub beitreten"
   },
   "error": {
     "error": "Fehler",
@@ -66,7 +69,18 @@
     "connected_clients": "Verbundener Client | Verbundene Clients",
     "ca_expiry_title": "Die VPN-Zertifizierungsstelle läuft bald ab",
     "ca_expiry_description": "Sie läuft am {date} ab. Danach kann sich kein Client mehr verbinden.",
-    "go_to_sessions": "Zu den Sitzungen"
+    "go_to_sessions": "Zu den Sitzungen",
+    "hub_server_port": "Hub, UDP-Port {port}",
+    "spoke_of_hub": "Knoten dieses Hubs, Adresse {ip}",
+    "hub_nodes": "Knoten des Hubs",
+    "hub_nodes_description": "Die Benutzer erreichen die Apps dieser Knoten. Filtern Sie eine HTTP-Route auf das VPN-Netz, um sie ihnen vorzubehalten.",
+    "instance": "Instanz",
+    "address": "Adresse",
+    "link": "Verbindung",
+    "connected": "Verbunden",
+    "disconnected": "Getrennt",
+    "remove_node": "Entfernen",
+    "removing_node": "{module} wird aus dem Hub entfernt"
   },
   "accounts": {
     "title": "Konten",
@@ -204,7 +218,27 @@
     "instance_configuration": "{instance} konfigurieren",
     "restrict_apps_title": "Eine Web-App für die VPN-Clients vorbehalten",
     "restrict_apps_description": "Fügen Sie dieses Netzwerk in \"Anfragen erlauben von\" der HTTP-Route der App ein. Nur die Clients dieses VPN erreichen sie dann.",
-    "go_to_http_routes": "Zu den HTTP-Routen"
+    "go_to_http_routes": "Zu den HTTP-Routen",
+    "mode": "Rolle dieses Knotens",
+    "mode_standalone": "Eigenständig",
+    "mode_hub": "Hub",
+    "mode_spoke": "Knoten eines Hubs",
+    "mode_standalone_helper": "Die Benutzer verbinden sich mit diesem Knoten und erreichen seine Apps und seinen Samba-DC.",
+    "mode_hub_helper": "Die Benutzer verbinden sich mit diesem Knoten und erreichen die Apps jedes Knotens, der ihm beitritt. Das Netz neben dem VPN-Netz verbindet die Knoten, zum Beispiel 10.8.1.0/24 neben 10.8.0.0/24.",
+    "mode_spoke_helper": "Dieser Knoten tritt einem Hub über das Cluster-VPN bei. Die Benutzer des Hubs erreichen seine Apps und seinen Samba-DC. Er hat keine Benutzer und keinen öffentlichen Port.",
+    "hub": "Hub",
+    "choose_hub": "Wählen Sie den Hub, dem dieser Knoten beitritt",
+    "no_hub_title": "Kein Hub im Cluster",
+    "no_hub_description": "Setzen Sie zuerst die Rolle Hub auf der roadwarrior-Instanz eines anderen Knotens.",
+    "hub_has_spokes": "Andere Knoten sind diesem Hub beigetreten. Entfernen Sie sie zuerst auf der Statusseite",
+    "accounts_exist": "Diese Instanz hat VPN-Konten. Entfernen Sie sie zuerst",
+    "hub_not_found": "Dieser Hub existiert nicht mehr",
+    "server_not_running": "Der Hub {hub} läuft nicht. Starten Sie ihn zuerst",
+    "not_a_hub": "{hub} ist kein Hub mehr",
+    "not_joined": "Dieser Knoten ist diesem Hub nie beigetreten. Speichern Sie erneut, um beizutreten",
+    "module_not_found": "Der Hub kennt diese Instanz nicht",
+    "hub_on_leader": "Leader-Knoten {node}",
+    "hub_on_worker": "Worker-Knoten {node}"
   },
   "sessions": {
     "title": "Sitzungen",

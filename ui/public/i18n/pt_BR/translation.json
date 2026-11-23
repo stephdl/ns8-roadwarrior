@@ -25,7 +25,10 @@
     "kill-session": "Desconectar uma sessão",
     "disable-account": "Desativar uma conta",
     "enable-account": "Ativar uma conta",
-    "renew-account": "Renovar um certificado"
+    "renew-account": "Renovar um certificado",
+    "list-spokes": "Listar nós",
+    "request-spoke-certificate": "Solicitar um certificado para entrar em um hub",
+    "add-spoke": "Entrar em um hub"
   },
   "error": {
     "error": "Erro",
@@ -66,7 +69,18 @@
     "connected_clients": "Cliente conectado | Clientes conectados",
     "ca_expiry_title": "A autoridade certificadora da VPN expira em breve",
     "ca_expiry_description": "Expira em {date}. Depois dessa data, nenhum cliente consegue se conectar.",
-    "go_to_sessions": "Ir para as sessões"
+    "go_to_sessions": "Ir para as sessões",
+    "hub_server_port": "Hub, porta UDP {port}",
+    "spoke_of_hub": "Nó deste hub, endereço {ip}",
+    "hub_nodes": "Nós do hub",
+    "hub_nodes_description": "Os usuários acessam os apps desses nós. Filtre uma rota HTTP na rede VPN para reservá-la a eles.",
+    "instance": "Instância",
+    "address": "Endereço",
+    "link": "Link",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "remove_node": "Remover",
+    "removing_node": "Removendo {module} do hub"
   },
   "accounts": {
     "title": "Contas",
@@ -204,7 +218,27 @@
     "instance_configuration": "Configurando {instance}",
     "restrict_apps_title": "Reservar um aplicativo web aos clientes VPN",
     "restrict_apps_description": "Cole esta rede em \"Restrict access from\" na rota HTTP do aplicativo. Só os clientes desta VPN o acessam então.",
-    "go_to_http_routes": "Ir para as rotas HTTP"
+    "go_to_http_routes": "Ir para as rotas HTTP",
+    "mode": "Função deste nó",
+    "mode_standalone": "Independente",
+    "mode_hub": "Hub",
+    "mode_spoke": "Nó de um hub",
+    "mode_standalone_helper": "Os usuários se conectam a este nó e acessam seus apps e seu DC Samba.",
+    "mode_hub_helper": "Os usuários se conectam a este nó e acessam os apps de cada nó que entra nele. A rede ao lado da rede VPN liga os nós, por exemplo 10.8.1.0/24 ao lado de 10.8.0.0/24.",
+    "mode_spoke_helper": "Este nó entra em um hub pela VPN do cluster. Os usuários do hub acessam seus apps e seu DC Samba. Ele não tem usuários nem porta pública.",
+    "hub": "Hub",
+    "choose_hub": "Escolha o hub em que este nó entra",
+    "no_hub_title": "Nenhum hub no cluster",
+    "no_hub_description": "Defina primeiro a função Hub na instância roadwarrior de outro nó.",
+    "hub_has_spokes": "Outros nós entraram neste hub. Remova-os primeiro na página Status",
+    "accounts_exist": "Esta instância tem contas VPN. Remova-as primeiro",
+    "hub_not_found": "Este hub não existe mais",
+    "server_not_running": "O hub {hub} não está em execução. Inicie-o primeiro",
+    "not_a_hub": "{hub} não é mais um hub",
+    "not_joined": "Este nó nunca entrou neste hub. Salve de novo para entrar",
+    "module_not_found": "O hub não conhece esta instância",
+    "hub_on_leader": "nó líder {node}",
+    "hub_on_worker": "nó worker {node}"
   },
   "sessions": {
     "title": "Sessões",

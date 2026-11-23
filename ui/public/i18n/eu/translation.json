@@ -25,7 +25,10 @@
     "kill-session": "Deskonektatu saio bat",
     "disable-account": "Desgaitu kontu bat",
     "enable-account": "Gaitu kontu bat",
-    "renew-account": "Berritu ziurtagiri bat"
+    "renew-account": "Berritu ziurtagiri bat",
+    "list-spokes": "Zerrendatu nodoak",
+    "request-spoke-certificate": "Eskatu ziurtagiri bat hub batera batzeko",
+    "add-spoke": "Batu hub batera"
   },
   "error": {
     "error": "Errorea",
@@ -66,7 +69,18 @@
     "connected_clients": "Bezero konektatua | Bezero konektatuak",
     "ca_expiry_title": "VPNaren ziurtagiri-agintaritza laster iraungiko da",
     "ca_expiry_description": "{date} datan iraungiko da. Data horren ondoren, ezin da bezerorik konektatu.",
-    "go_to_sessions": "Joan saioetara"
+    "go_to_sessions": "Joan saioetara",
+    "hub_server_port": "Hub-a, {port} UDP ataka",
+    "spoke_of_hub": "Hub honetako nodoa, {ip} helbidea",
+    "hub_nodes": "Hub-eko nodoak",
+    "hub_nodes_description": "Erabiltzaileek nodo hauetako aplikazioak erabil ditzakete. Iragazi HTTP bide bat VPN sarean haientzat gordetzeko.",
+    "instance": "Instantzia",
+    "address": "Helbidea",
+    "link": "Lotura",
+    "connected": "Konektatuta",
+    "disconnected": "Deskonektatuta",
+    "remove_node": "Kendu",
+    "removing_node": "{module} hub-etik kentzen"
   },
   "accounts": {
     "title": "Kontuak",
@@ -204,7 +218,27 @@
     "instance_configuration": "{instance} konfiguratzen",
     "restrict_apps_title": "Gorde web aplikazio bat VPN bezeroentzat",
     "restrict_apps_description": "Itsatsi sare hau aplikazioaren HTTP bideko \"Restrict access from\" eremuan. Orduan VPN honetako bezeroek bakarrik sartzen dira.",
-    "go_to_http_routes": "Joan HTTP bideetara"
+    "go_to_http_routes": "Joan HTTP bideetara",
+    "mode": "Nodo honen rola",
+    "mode_standalone": "Autonomoa",
+    "mode_hub": "Hub-a",
+    "mode_spoke": "Hub baten nodoa",
+    "mode_standalone_helper": "Erabiltzaileak nodo honetara konektatzen dira eta bere aplikazioak eta Samba DC-a erabil ditzakete.",
+    "mode_hub_helper": "Erabiltzaileak nodo honetara konektatzen dira eta bertara batzen den nodo bakoitzeko aplikazioak erabil ditzakete. VPN sarearen ondoko sareak nodoak lotzen ditu, adibidez 10.8.1.0/24 10.8.0.0/24-ren ondoan.",
+    "mode_spoke_helper": "Nodo hau hub batera batzen da klusterraren VPN bidez. Hub-eko erabiltzaileek bere aplikazioak eta Samba DC-a erabil ditzakete. Ez du erabiltzailerik ez ataka publikorik.",
+    "hub": "Hub-a",
+    "choose_hub": "Aukeratu nodo hau batzen den hub-a",
+    "no_hub_title": "Ez dago hub-ik klusterrean",
+    "no_hub_description": "Ezarri lehenik Hub rola beste nodo bateko roadwarrior instantzian.",
+    "hub_has_spokes": "Beste nodo batzuk hub honetara batu dira. Kendu itzazu lehenik Egoera orritik",
+    "accounts_exist": "Instantzia honek VPN kontuak ditu. Kendu itzazu lehenik",
+    "hub_not_found": "Hub hau ez da existitzen jada",
+    "server_not_running": "{hub} hub-a ez dago martxan. Abiarazi lehenik",
+    "not_a_hub": "{hub} ez da hub bat jada",
+    "not_joined": "Nodo hau ez da inoiz hub honetara batu. Gorde berriro batzeko",
+    "module_not_found": "Hub-ak ez du instantzia hau ezagutzen",
+    "hub_on_leader": "{node} nodo liderra",
+    "hub_on_worker": "{node} worker nodoa"
   },
   "sessions": {
     "title": "Saioak",
