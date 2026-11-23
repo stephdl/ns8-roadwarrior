@@ -139,6 +139,8 @@ data-ciphers ${data_ciphers}
 ${route_lines}
 status /etc/openvpn/run/s2s-status.log 10
 keepalive 10 60
+# Tell the nodes on restart, or they wait for the keepalive timeout to join again
+explicit-exit-notify 1
 persist-key
 verb 3
 EOF
