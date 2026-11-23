@@ -53,6 +53,8 @@ server ${OVPN_NETWORK} ${OVPN_NETMASK}
 # The core tun-manager owns the address of the tun and the host routes
 ifconfig-noexec
 route-noexec
+# OpenVPN 2.7 enables kernel DCO by default, which wants to own the tun itself
+disable-dco
 port ${OVPN_PORT}
 proto udp
 # Reply from the address the client contacted: the node can hold several addresses
