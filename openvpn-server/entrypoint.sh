@@ -28,28 +28,6 @@ auth-gen-token-secret /etc/openvpn/pki/auth-token.key"
     else
         auth_lines=""
     fi
-    # PUSH_ROUTES holds address/netmask pairs
-    push_lines=""
-    for route in ${PUSH_ROUTES}; do
-        push_lines="${push_lines}push \"route ${route%/*} ${route#*/}\"
-"
-    done
-    # Clients before 2.6 send every query to the VPN resolver, 2.6 and later only the listed domains
-    dns_lines="push \"dhcp-option DNS ${OVPN_SERVER_IP}\"
-push \"dns server 0 address ${OVPN_SERVER_IP}\""
-    if [ -n "${DNS_DOMAINS}" ]; then
-        dns_lines="${dns_lines}
-push \"dns server 0 resolve-domains ${DNS_DOMAINS}\""
-        # OpenVPN 2.7 clients rebuild the DOMAIN options of their up script from
-        # search-domains only, and NetworkManager reads those to route the domains
-        dns_lines="${dns_lines}
-push \"dns search-domains ${DNS_DOMAINS}\""
-        # Older clients, NetworkManager and Windows route these domains to the VPN resolver
-        for domain in ${DNS_DOMAINS}; do
-            dns_lines="${dns_lines}
-push \"dhcp-option DOMAIN ${domain}\""
-        done
-    fi
     cat > /etc/openvpn/server.conf <<EOF
 dev ${OVPN_TUN}
 dev-type tun
@@ -72,9 +50,9 @@ remote-cert-tls client
 data-ciphers ${data_ciphers}
 ${auth_lines}
 script-security 2
+# Pushes the routes and the domains of /run/ovpn/push.json: a change needs no restart
 client-connect /usr/local/bin/ovpn-connect
 client-disconnect "/usr/local/bin/ovpn-history disconnect"
-${push_lines}${dns_lines}
 management /etc/openvpn/run/mgmt.sock unix
 status /etc/openvpn/run/status.log 30
 keepalive 10 60
@@ -128,6 +106,7 @@ client-config-dir /run/ovpn/ccd
 ccd-exclusive
 data-ciphers ${data_ciphers}
 ${route_lines}
+management /etc/openvpn/run/s2s-mgmt.sock unix
 status /etc/openvpn/run/s2s-status.log 10
 keepalive 10 60
 # Tell the nodes on restart, or they wait for the keepalive timeout to join again

@@ -46,6 +46,8 @@ HUB_S2S_TUN = "tuns2s"
 AUTH_JSON = "ovpn/auth.json"
 HOSTS = "ovpn/hosts"
 DNSMASQ_CONF = "ovpn/dnsmasq.conf"
+# Routes and DNS settings of the users, read by the server at each new session: a change needs no restart
+PUSH_JSON = "ovpn/push.json"
 # Read by the server at each new session: a change needs no restart
 DISABLED = "ovpn/disabled.json"
 # Left by a restored or moved copy that waits for the original to leave the node
@@ -300,6 +302,8 @@ def unregister_spoke(rdb, module_id):
     spokes.pop(uuid)
     podman_exec("ovpn-pki", "s2s-revoke", uuid, container=S2S_CONTAINER, check=False)
     save_spokes(spokes)
+    # The link server reads the new CRL at the next connection: end the current one now
+    podman_exec("ovpn-mgmt", "s2s-kill", uuid, container=S2S_CONTAINER, check=False)
     return True
 
 
@@ -497,7 +501,7 @@ def write_server_runtime(rdb, skip_module=""):
     for _, realm, ip in dcs:
         push_routes.append(f"{ip}/255.255.255.255")
         domains.add(realm)
-    domains = sorted(domains)
+    save_json(PUSH_JSON, {"dns_server": server_ip, "routes": push_routes, "domains": sorted(domains)})
 
     server_env = {
         "OVPN_TUN": HUB_RW_TUN,
@@ -508,8 +512,6 @@ def write_server_runtime(rdb, skip_module=""):
         "OVPN_REMOTE": conf["OVPN_HOST"],
         "OVPN_CA_CN": f"{os.environ['MODULE_ID']} {conf['OVPN_HOST']}",
         "AUTH_MODE": conf["OVPN_AUTH_MODE"],
-        "PUSH_ROUTES": " ".join(push_routes),
-        "DNS_DOMAINS": " ".join(domains),
     }
     if write_if_changed(SERVER_ENV, env_text(server_env)):
         changed.add(SERVER_UNIT)
@@ -561,10 +563,14 @@ def write_s2s_runtime(link, spokes, dcs_by_spoke):
 
 
 def apply_runtime(changed):
-    """Restart what must restart, and let the resolver read its lists again."""
+    """Restart what must restart, and let the resolver read its lists again.
+
+    The user server never restarts here: the admin may be connected through it. Its routes and
+    domains apply at the next session, and server.env only changes with configure-module.
+    """
     # A unit writes the runtime files before it starts: it would wait for our lock forever
     unlock_state()
-    for unit in sorted(changed):
+    for unit in sorted(changed - {SERVER_UNIT}):
         subprocess.run(["systemctl", "--user", "try-restart", unit], check=False)
     if mode() == "hub":
         subprocess.run(["systemctl", "--user", "reload", DNS_UNIT], check=False)

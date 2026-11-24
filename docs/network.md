@@ -164,7 +164,7 @@ The domains are the parent domains of the route names and of the node FQDN, plus
 
 The host of the VPN server is left out on purpose. A client that keeps the VPN resolver during a reconnect would otherwise look for the server inside the tunnel.
 
-When an HTTP route is added or removed, the `hosts-changed` event rewrites the dnsmasq list.
+When an HTTP route is added or removed, the `hosts-changed` event rewrites the dnsmasq list. The `client-connect` hook of the server pushes the routes and the domains, read again at each session: a new domain reaches a client at its next connection, with no restart of the server.
 
 ## Windows clients in the domain
 
@@ -269,7 +269,11 @@ No instance has rights on another one, and nothing is written to Redis. A grant 
 
 The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again.
 
-`remove-spoke` on the hub revokes the certificate of a node. The node keeps trying until its role changes.
+`remove-spoke` on the hub revokes the certificate of a node and ends its link through the management socket of the link server. The link server reads the new revocation list at the next connection. The node keeps trying until its role changes.
+
+### Node actions keep the users connected
+
+The admin often works through the VPN. So `add-spoke`, `remove-spoke` and the events never restart the user server: the new routes and domains apply at the next session of each client. Only the link server restarts, when the route to a Samba DC changes. The user server restarts only when `configure-module` changes its own settings.
 
 ### Throughput
 

@@ -19,7 +19,4 @@ if module_id == os.environ["MODULE_ID"]:
     # The spoke of this node leaves with the hub role, in configure-module
     om.fail_validation("module_id", module_id, "own_spoke")
 if om.unregister_spoke(agent.redis_connect(use_replica=True), module_id):
-    changed = om.write_runtime()
-    # A node still connected keeps its session until the server reads the new CRL
-    changed.add("openvpn-s2s.service")
-    om.apply_runtime(changed)
+    om.apply_runtime(om.write_runtime())

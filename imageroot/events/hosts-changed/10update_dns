@@ -21,5 +21,5 @@ nodes = {os.environ["NODE_ID"]}
 nodes |= {info["node_id"] for info in om.current_spokes(agent.redis_connect(use_replica=True)).values()}
 if str(event.get("node_id")) not in nodes:
     sys.exit(0)
-# A new domain changes what the server pushes: clients reconnect on their own
+# A new domain reaches the clients at their next session
 om.apply_runtime(om.write_runtime())

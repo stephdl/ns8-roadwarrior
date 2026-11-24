@@ -8,12 +8,32 @@
 # client-connect hook. It runs for every new session, in every auth mode, so a disabled
 # account is refused here even with a valid certificate and no password check.
 # /run/ovpn/disabled.json lists the disabled accounts, written by the module.
+# It also pushes the routes and the domains of /run/ovpn/push.json, read again at each session.
 
+import json
 import os
 import subprocess
 import sys
 
 from ovpn_common import is_disabled
+
+PUSH_JSON = "/run/ovpn/push.json"
+
+
+def push_lines(push):
+    lines = [f'push "route {route.replace("/", " ")}"' for route in push.get("routes", [])]
+    dns = push["dns_server"]
+    domains = " ".join(push.get("domains", []))
+    # Clients before 2.6 send every query to the VPN resolver, 2.6 and later only the listed domains
+    lines += [f'push "dhcp-option DNS {dns}"', f'push "dns server 0 address {dns}"']
+    if domains:
+        lines.append(f'push "dns server 0 resolve-domains {domains}"')
+        # OpenVPN 2.7 clients rebuild the DOMAIN options of their up script from
+        # search-domains only, and NetworkManager reads those to route the domains
+        lines.append(f'push "dns search-domains {domains}"')
+        # Older clients, NetworkManager and Windows route these domains to the VPN resolver
+        lines += [f'push "dhcp-option DOMAIN {domain}"' for domain in push["domains"]]
+    return "".join(line + "\n" for line in lines)
 
 name = os.environ.get("common_name", "")
 
@@ -21,6 +41,17 @@ if is_disabled(name):
     print(f"ovpn-connect: account {name!r} is disabled", file=sys.stderr, flush=True)
     subprocess.run(["/usr/local/bin/ovpn-history", "refused", name, "account_disabled"], check=False)
     sys.exit(1)
+
+# OpenVPN passes the file of the options for this session as the argument
+try:
+    with open(PUSH_JSON) as f:
+        options = push_lines(json.load(f))
+    with open(sys.argv[1], "w") as f:
+        f.write(options)
+except IndexError:
+    print("ovpn-connect: no file given for the options of the session", file=sys.stderr, flush=True)
+except (OSError, ValueError, KeyError) as exc:
+    print(f"ovpn-connect: no routes nor domains pushed to {name!r}: {exc}", file=sys.stderr, flush=True)
 
 # OpenVPN runs this hook without PATH. A failed history write is logged, it never refuses the session.
 try:
