@@ -7,7 +7,11 @@
 
 import ovpn_module as om
 
-# ovpn-auth reads auth.json at each login: only server.env changes need a restart.
+# ovpn-auth reads auth.json at each login: only server.env changes need a restart of the user server.
 # A spoke learns its address from the hub at each save: its session must start again.
-if om.write_runtime() or om.mode() == "spoke" or not om.server_running():
+changed = om.write_runtime()
+if om.SERVER_UNIT in changed or om.mode() == "spoke" or not om.server_running():
     open("ovpn/restart-needed", "w").close()
+else:
+    # The resolver and the link restart alone: the users stay connected
+    om.apply_runtime(changed)

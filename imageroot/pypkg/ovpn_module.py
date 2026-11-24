@@ -520,7 +520,9 @@ def write_server_runtime(rdb, skip_module=""):
     for _, realm, ip in dcs:
         # The realm and its SRV records come from the samba DNS
         dnsmasq += f"server=/{realm}/{ip}\n"
-    write_text(DNSMASQ_CONF, dnsmasq)
+    # dnsmasq reads its server lines only when it starts: SIGHUP reloads the hosts file alone
+    if write_if_changed(DNSMASQ_CONF, dnsmasq):
+        changed.add(DNS_UNIT)
 
     auth = {"totp_required": is_true(conf["OVPN_TOTP_REQUIRED"])}
     domain = conf["OVPN_USER_DOMAIN"]

@@ -149,10 +149,12 @@ EOF
     exec openvpn --config /tmp/spoke.conf
     ;;
 dnsmasq)
-    # Only the VPN clients ask this resolver: it listens on the tun address alone.
-    # The names of the hosts file answer with the tun address, the rest goes to the node resolver.
+    # Only the VPN clients ask this resolver: it answers on the tun address alone.
+    # The names of the hosts file answer with the address of their node, the rest goes to the node resolver.
+    # No --bind-dynamic: it may start before OpenVPN creates the tun, and then missed its UDP socket.
+    # The wildcard socket of the private namespace needs no tun at start.
     exec dnsmasq --keep-in-foreground --log-facility=- \
-        --listen-address="${OVPN_SERVER_IP}" --bind-dynamic --except-interface=lo \
+        --listen-address="${OVPN_SERVER_IP}" --except-interface=lo \
         --no-hosts --addn-hosts=/run/ovpn/hosts --conf-file=/run/ovpn/dnsmasq.conf
     ;;
 *)
