@@ -163,6 +163,18 @@ export default {
     },
   },
   created() {
+    // Opened from a link, the page may come before any other loaded the role
+    this.runModuleTask({
+      action: "get-configuration",
+      completed: (config) => {
+        this.$store.commit("setMode", config.mode);
+        if (config.mode === "spoke") {
+          this.goToAppPage(this.instanceName, "status");
+        }
+      },
+      aborted: () => {},
+      failed: () => {},
+    });
     this.getVpnStatus();
     this.refreshInterval = setInterval(
       this.getVpnStatus,

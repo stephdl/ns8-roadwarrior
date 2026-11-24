@@ -57,6 +57,14 @@
           >
             <template slot="content">
               <div class="card-rows">
+                <div
+                  v-if="config.mode === 'spoke' && config.hub"
+                  class="card-row"
+                >
+                  <cv-link @click="goToAppPage(config.hub, 'accounts')">
+                    {{ $t("status.users_on_hub", { hub: config.hub }) }}
+                  </cv-link>
+                </div>
                 <div v-if="vpnAddress" class="card-row">
                   {{ $t("status.vpn_address", { ip: vpnAddress }) }}
                 </div>
@@ -544,6 +552,7 @@ export default {
         action: "get-configuration",
         completed: (output) => {
           this.config = output;
+          this.$store.commit("setMode", output.mode);
           this.loading.getConfiguration = false;
           if (output.configured) {
             this.getVpnStatus();

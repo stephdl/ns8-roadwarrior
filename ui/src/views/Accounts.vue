@@ -680,6 +680,12 @@ export default {
       this.runModuleTask({
         action: "get-configuration",
         completed: (config) => {
+          this.$store.commit("setMode", config.mode);
+          if (config.mode === "spoke") {
+            // The users of a spoke connect to its hub
+            this.goToAppPage(this.instanceName, "status");
+            return;
+          }
           this.configured = config.configured;
           this.authMode = config.auth_mode;
           this.totpRequired = config.totp_required;

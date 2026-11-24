@@ -671,6 +671,9 @@ def fail_validation(field, value, error):
 
 
 def require_server():
+    # The users of a spoke connect to its hub: their accounts live there
+    if mode() == "spoke":
+        fail_validation("name", "", "spoke_has_no_accounts")
     if not server_running():
         fail_validation("name", "", "server_not_running")
 

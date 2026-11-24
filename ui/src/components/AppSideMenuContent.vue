@@ -22,6 +22,7 @@
         <span>{{ $t("status.title") }}</span>
       </cv-side-nav-link>
       <cv-side-nav-link
+        v-if="mode !== 'spoke'"
         @click="goToAppPage(instanceName, 'accounts')"
         :class="{ 'current-page': isLinkActive('accounts') }"
       >
@@ -29,6 +30,7 @@
         <span>{{ $t("accounts.title") }}</span>
       </cv-side-nav-link>
       <cv-side-nav-link
+        v-if="mode !== 'spoke'"
         @click="goToAppPage(instanceName, 'sessions')"
         :class="{ 'current-page': isLinkActive('sessions') }"
       >
@@ -78,7 +80,7 @@ export default {
     };
   },
   computed: {
-    ...mapState(["instanceName", "instanceLabel", "core"]),
+    ...mapState(["instanceName", "instanceLabel", "core", "mode"]),
   },
   created() {
     // register to appNavigation event
