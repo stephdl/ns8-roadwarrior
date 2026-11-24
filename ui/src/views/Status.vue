@@ -649,4 +649,12 @@ export default {
 .break-word {
   word-break: break-word;
 }
+
+// The tag is a block of its own: text-align alone leaves it on the left
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+}
 </style>
