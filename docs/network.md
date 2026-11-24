@@ -264,15 +264,19 @@ The validation of the hub refuses a VPN network whose supernet overlaps a node n
 
 The resolver of the hub answers each app name with the address of the spoke of the node that serves it. When a spoke opens its Samba DC, the realm is forwarded to the DC, and the hub pushes a route to the DC address through that node.
 
+The names come from the real routes of each Traefik, read with `list-routes`. The hosts set of Traefik keeps the name of a route moved to another node, so it would send the users to a node without that route. When a name has a route on two nodes, the node of the hub wins: it is a wrong configuration or a clone in progress, so the hub does not warn about it.
+
+The hub resolves the names again on two events. `hosts-changed` comes from Traefik when its hosts set changes. `module-removed` ends a move, a clone or a restore with replace, which leave the hosts set unchanged: the routes of the removed module are left out, as Traefik may still list them for a moment. `module-added` is useless here, the new module has no route yet.
+
 ### Joining
 
-No instance has rights on another one. The admin, or the UI of the node, carries the request:
+No instance has rights on another one, and nothing is written to Redis. A grant like `roadwarrior@any` also matches the instance itself and replaces its `selfadm` role: restore and clone could no longer call `configure-module`. The admin, or the UI of the node, carries the request:
 
 1. `request-spoke-certificate` on the node makes its key, once, and returns a certificate request. The key never leaves the node.
 2. `add-spoke` on the hub signs it with the CA of the link, which is apart from the CA of the users, and returns the address of the node.
 3. `configure-module` on the node takes that answer as `join`.
 
-The node keeps the answer in its backup, so a restore or a new save needs no new join. A spoke follows its hub when it moves: it reads the cluster VPN address of the hub node at each start. A hub restored or cloned gets a new instance id: join the nodes again.
+The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again.
 
 `remove-spoke` on the hub revokes the certificate of a node. The node keeps trying until its role changes.
 
