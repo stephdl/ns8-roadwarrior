@@ -61,12 +61,6 @@
             <cv-radio-group vertical class="mg-bottom-sm">
               <cv-radio-button
                 v-model="mode"
-                value="standalone"
-                :label="$t('settings.mode_standalone')"
-                :disabled="stillLoading"
-              />
-              <cv-radio-button
-                v-model="mode"
                 value="hub"
                 :label="$t('settings.mode_hub')"
                 :disabled="stillLoading"
@@ -288,7 +282,7 @@ export default {
       sambaAvailable: false,
       ipAllowlist: "",
       hasAccounts: false,
-      mode: "standalone",
+      mode: "hub",
       hub: "",
       hubs: [],
       loading: {

@@ -30,4 +30,4 @@ if os.path.exists("ovpn/restart-needed"):
     os.unlink("ovpn/restart-needed")
 elif om.mode() != "spoke":
     # Only the resolver lists changed: no client is dropped
-    systemctl("reload-or-restart", om.dns_unit())
+    systemctl("reload-or-restart", om.DNS_UNIT)

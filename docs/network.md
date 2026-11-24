@@ -1,6 +1,8 @@
 # How the network works
 
-This page explains the path of a VPN client, from the Internet to the web apps of the node. It also explains why a client reaches only the node it connects to.
+This page explains the path of a VPN client, from the Internet to the web apps of the node, and to the other nodes of the cluster.
+
+An instance is a hub, the default, or a node of a hub, a spoke. A hub with no node serves the apps of its own node. See [A hub and its nodes](#a-hub-and-its-nodes) for the other nodes.
 
 ## The pieces
 
@@ -13,11 +15,15 @@ flowchart LR
         nic["public interface<br/>UDP port of the instance"]
 
         subgraph module["roadwarrior instance, rootless"]
-            ovpn["openvpn-server container<br/>host network"]
-            dns["openvpn-dns container<br/>dnsmasq on 10.8.0.1"]
+            subgraph pod["hub pod, private network namespace"]
+                ovpn["user server<br/>tunrw 10.8.0.1/24"]
+                s2s["link server<br/>tuns2s 10.8.1.1/24"]
+                dns["resolver on 10.8.0.1"]
+            end
+            spoke["spoke container<br/>host network"]
         end
 
-        tun["tun device tunrwN<br/>10.8.0.1/24<br/>created by the core"]
+        tun["tun device tunrwN<br/>10.8.1.2/23<br/>created by the core"]
         zone["firewalld zone tunrwN<br/>443, 80, 53, Samba ports<br/>SSH rejected"]
         traefik["Traefik<br/>HTTP routes"]
         apps["web apps of the node"]
@@ -26,21 +32,21 @@ flowchart LR
     end
 
     client -- "encrypted UDP" --> nic --> ovpn
-    ovpn -- "decrypted packets" --> tun
+    ovpn --> s2s -- "cluster VPN" --> spoke
+    spoke -- "decrypted packets" --> tun
     tun --> zone
     zone --> traefik --> apps
     zone --> samba
-    zone --> dns
     ovpn -. "password check" .-> ldap
 ```
 
-The module runs rootless, so it cannot create network devices or firewall rules. It asks the core instead:
+The module runs rootless, so it cannot create network devices or firewall rules on the node. It asks the core instead:
 
-- `add_tun` creates the tun device with the server address, for example `10.8.0.1/24`.
+- `add_tun` creates the tun device of the spoke with its address on the link, for example `10.8.1.2/23`.
 - `add_custom_zone` puts the tun in its own firewalld zone. That zone opens only the ports the clients need.
 - `add_public_service` opens the UDP port of the instance on the public side.
 
-OpenVPN runs with the host network and receives the tun from the core. It does not configure addresses or routes itself (`ifconfig-noexec`, `route-noexec`). Without a container network in the middle, throughput stays close to the line rate.
+The user server, the link server and the resolver run in a private network namespace, owned by the module. There they create their own tun devices and forward between them. The spoke runs with the host network and receives its tun from the core. It does not configure addresses or routes itself (`ifconfig-noexec`, `route-noexec`).
 
 ## A login
 
@@ -69,7 +75,7 @@ sequenceDiagram
     A-->>O: result through auth_control_file
     A->>H: refused, with the reason
     O->>H: login, with addresses
-    O-->>C: VPN address, route, DNS settings
+    O-->>C: VPN address, routes, DNS settings
     Note over C,O: Later renegotiations use a session token valid for 12 hours, until an admin disconnects the account
 ```
 
@@ -83,31 +89,35 @@ The challenge state lives 3 minutes and works once.
 flowchart LR
     client["VPN client 10.8.0.2"]
 
-    subgraph node1["node 1, runs the VPN"]
-        tun1["tunrwN 10.8.0.1"]
-        svc["Traefik, DNS, Samba"]
+    subgraph node1["node 1, runs the hub"]
+        pod["hub pod<br/>nft forward"]
+        tun1["tunrwN 10.8.1.2"]
+        svc["Traefik, Samba"]
         ssh1["SSH"]
     end
 
-    node2["node 2"]
+    node2["node 2, joined the hub"]
+    node3["node 3, no spoke"]
     lan["LAN"]
     internet["Internet"]
 
-    client --> tun1
+    client --> pod
+    pod -- "link" --> tun1
     tun1 -- "allowed by the zone" --> svc
     tun1 -. "rejected" .-> ssh1
-    tun1 -. "no forward" .-> node2
+    pod -- "link" --> node2
+    pod -. "no link" .-> node3
     tun1 -. "no forward" .-> lan
     tun1 -. "no forward" .-> internet
 ```
 
-The node does not forward packets from the tun zone. So a client reaches the services of this node only. The default route of the client stays on its own network: its Internet traffic does not enter the VPN.
+The node does not forward packets from the tun zone. So a client reaches the services of the nodes that joined the hub, and nothing else. The default route of the client stays on its own network: its Internet traffic does not enter the VPN.
 
-Reaching the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it. Other nodes of the cluster are reached with [a hub](#a-hub-and-its-nodes), which forwards in its own network namespace.
+Reaching the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it.
 
 ## Keeping an app for the VPN clients
 
-Traefik runs on the host network too, so it sees the real VPN address of the client, for example `10.8.0.2`. An HTTP route with "Allow access from" set to the VPN network then accepts the VPN clients only.
+The hub does no NAT and Traefik runs on the host network, so it sees the real VPN address of the client, for example `10.8.0.2`. An HTTP route with "Allow access from" set to the VPN network then accepts the VPN clients only.
 
 ```mermaid
 flowchart LR
@@ -131,7 +141,7 @@ The client must reach the app through the VPN for this to work. That is the job 
 flowchart TB
     q["client asks a name"]
     d["dnsmasq on 10.8.0.1"]
-    r1["name of an HTTP route of the node<br/>answer 10.8.0.1"]
+    r1["name of an HTTP route of a node<br/>answer the spoke of that node, 10.8.1.x"]
     r2["Samba realm<br/>forward to the Samba DC"]
     r3["other name<br/>resolver of the node"]
 
@@ -141,9 +151,9 @@ flowchart TB
     d --> r3
 ```
 
-The names of the HTTP routes and the FQDN of the node resolve to the VPN address of the node. Their traffic enters the VPN and Traefik sees `10.8.0.x`. Without the VPN resolver, the same name gives the public address: the traffic goes around the tunnel and an app kept for the VPN answers 403.
+The names of the HTTP routes and the FQDN of the hub node resolve to the address of the spoke of the node that serves them. Their traffic enters the VPN and Traefik sees `10.8.0.x`. Without the VPN resolver, the same name gives the public address: the traffic goes around the tunnel and an app kept for the VPN answers 403.
 
-The server pushes the resolver three ways, so each client finds one it knows:
+The server pushes the resolver several ways, so each client finds one it knows:
 
 - `dhcp-option DNS 10.8.0.1`, for every client;
 - `dhcp-option DOMAIN <domain>`, so NetworkManager and Windows send those domains to the VPN resolver;
@@ -174,46 +184,27 @@ The profile holds no DNS setting: the server pushes it at each connection. What 
       openvpn --config alice@vpn.example.org.ovpn --script-security 2 \
         --up /etc/openvpn/update-systemd-resolved --down /etc/openvpn/update-systemd-resolved --down-pre
 
-Check from the client, once connected, with `app.example.org` an HTTP route of the node:
+Check from the client, once connected, with `app.example.org` an HTTP route of the hub node:
 
-1. The name gives the VPN address of the node.
+1. The name gives the address of the spoke of the node.
 
        resolvectl query app.example.org      # Linux with systemd-resolved
        nslookup app.example.org              # Windows, macOS
 
-   Expect `10.8.0.1`. A public address means the client does not use the VPN resolver.
+   Expect `10.8.1.2`. A public address means the client does not use the VPN resolver.
 
 2. The packets go through the tunnel.
 
-       ip route get 10.8.0.1                 # Linux: dev tun0
-       route print                           # Windows: 10.8.0.0 on the VPN adapter
+       ip route get 10.8.1.2                 # Linux: dev tun0
+       route print                           # Windows: 10.8.1.0 on the VPN adapter
 
 3. Traefik sees the VPN address. Open the app: with "Allow access from" set to the VPN network it answers, without the VPN it answers 403.
 
 If the name still gives the public address, flush the DNS cache of the client (`resolvectl flush-caches`, `ipconfig /flushdns`) and check that the browser does not use its own DNS over HTTPS.
 
-## Several nodes
-
-Each node that runs apps for the VPN clients needs its own instance, with its own network and port. A user gets one profile per node. For a web app, [a relay route](#a-web-app-of-another-node) avoids the second instance.
-
-```mermaid
-flowchart LR
-    user["user with two profiles"]
-    subgraph n1["node 1"]
-        rw1["roadwarrior1<br/>10.8.0.0/24, port 1194"]
-        a1["apps of node 1"]
-    end
-    subgraph n2["node 2"]
-        rw2["roadwarrior2<br/>10.9.0.0/24, port 1195"]
-        a2["apps of node 2"]
-    end
-    user -- "profile 1" --> rw1 --> a1
-    user -- "profile 2" --> rw2 --> a2
-```
-
 ## A hub and its nodes
 
-One instance is the hub: the users connect to it, with one profile. Each other node that serves apps runs an instance with the role "node of a hub", a spoke. The spoke has no users and no public port: it joins the hub through the cluster VPN. The users of the hub then reach the apps and the Samba DC of every spoke.
+The hub is the instance the users connect to, with one profile. Each other node that serves apps runs an instance with the role "node of a hub", a spoke. The spoke has no users and no public port: it joins the hub through the cluster VPN. The users of the hub then reach the apps and the Samba DC of every spoke.
 
 ```mermaid
 flowchart TB
@@ -282,11 +273,11 @@ The node keeps the answer in its backup, so a restore or a new save needs no new
 
 ### Throughput
 
-A packet crosses three OpenVPN processes, the user server, the link server and the spoke, and two pasta translations. On test VMs a client reached about 300 Mbit/s to another node, over HTTP, HTTPS and SMB, against about 880 Mbit/s to a standalone instance. Kernel DCO would cut this cost, but a rootless module cannot add a DCO peer.
+A packet crosses three OpenVPN processes, the user server, the link server and the spoke, and two pasta translations. On test VMs a client reached about 300 Mbit/s to another node, over HTTP, HTTPS and SMB, against about 880 Mbit/s for an OpenVPN server on the host network. The apps of the hub node take the same path. Kernel DCO would cut this cost, but a rootless module cannot add a DCO peer.
 
 ## A web app of another node
 
-The VPN reaches only the node that runs it. A web app of another node can still be kept for the VPN clients: the Traefik of the VPN node relays it to the other node through the cluster VPN. Nothing changes in the core or in the firewall, it takes two HTTP routes.
+The VPN reaches only the nodes that joined the hub. A web app of a node without a spoke can still be kept for the VPN clients: the Traefik of the hub node relays it to the other node through the cluster VPN. Nothing changes in the core or in the firewall, it takes two HTTP routes.
 
 In this example the VPN runs on node 1 with the network `10.8.0.0/24`, and the app `app.example.org` runs on node 2. The cluster VPN gives node 1 the address `10.5.5.1` and node 2 the address `10.5.5.2`.
 
@@ -306,7 +297,7 @@ flowchart LR
 
     deny["403"]
 
-    vpn -- "name resolves to 10.8.0.1" --> r1
+    vpn -- "name resolves to 10.8.1.2" --> r1
     out -- "name resolves to node 1" --> r1
     out -. "goes to node 2 directly" .-> r2
     r1 -- "10.8.0.2 allowed<br/>relay to https://10.5.5.2<br/>through the cluster VPN" --> r2
@@ -346,7 +337,7 @@ api-cli run set-route --agent module/traefik2 --data '{
 
 `set-route` merges the request into the existing route, so the other settings of the app route stay as they are. The same settings exist in the HTTP routes page of the cluster admin.
 
-The VPN DNS needs no change. The relay route is a route of node 1, so the dnsmasq of the instance answers its name with `10.8.0.1`, and the traffic enters the tunnel.
+The VPN DNS needs no change. The relay route is a route of node 1, so the resolver of the hub answers its name with `10.8.1.2`, the spoke of node 1, and the traffic enters the tunnel.
 
 Things to know:
 

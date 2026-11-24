@@ -13,6 +13,6 @@ if ! grep -q -e '^OVPN_HOST=' -e '^OVPN_MODE=spoke' environment; then
     exit 0
 fi
 
-# try-restart leaves alone the units of the other modes
-systemctl --user try-restart openvpn-hub.service openvpn-server.service openvpn-dns.service \
-    openvpn-hub-server.service openvpn-hub-dns.service openvpn-s2s.service openvpn-spoke.service
+# try-restart leaves alone the units of the other mode
+systemctl --user try-restart openvpn-hub.service openvpn-hub-server.service openvpn-hub-dns.service \
+    openvpn-s2s.service openvpn-spoke.service

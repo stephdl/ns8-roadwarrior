@@ -26,10 +26,34 @@ Check if invalid settings are refused
 Check if roadwarrior can be configured with certificates only
     ${config} =    Configuration    certificate
     Run module action    configure-module    ${config}
-    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-server openvpn-dns
-    Should Be Equal    ${output}    active\nactive
+    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-hub openvpn-hub-server openvpn-hub-dns openvpn-s2s openvpn-spoke
+    Should Be Equal    ${output}    active\nactive\nactive\nactive\nactive
+    # The node tun is the spoke of the hub: its prefix covers the users network
     ${output} =    Execute Command    ip -4 -o addr show ${tun}
-    Should Contain    ${output}    10.66.0.1/24
+    Should Contain    ${output}    10.66.1.2/23
     ${rc} =    Execute Command    firewall-cmd --info-service=${module_id} | grep -q 11950/udp
     ...    return_rc=True  return_stdout=False
     Should Be Equal As Integers    ${rc}  0
+
+Check if the spoke of the hub joined the link
+    ${spokes} =    Run module action    list-spokes
+    ${spokes} =    Evaluate    json.loads($spokes)    modules=json
+    Should Be Equal    ${spokes}[0][module_id]    ${module_id}
+    Should Be Equal    ${spokes}[0][ip]    10.66.1.2
+    Wait Until Keyword Succeeds    60s    3s    Spoke is connected
+
+Check if the hub reaches the node through the link
+    ${output} =    Execute Command    runagent -m ${module_id} podman exec openvpn-server wget -q -S -O /dev/null http://10.66.1.2/ 2>&1 | head -1
+    Should Contain    ${output}    HTTP/
+    ${output} =    Execute Command    runagent -m ${module_id} podman exec openvpn-s2s nft list chain inet roadwarrior forward
+    Should Contain    ${output}    iifname "tunrw" oifname "tuns2s" accept
+
+Check if the hub refuses an unknown node
+    ${error} =    Validation error of    add-spoke    {"module_id": "roadwarrior999", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}
+    Should Be Equal    ${error}    module_not_found
+
+*** Keywords ***
+Spoke is connected
+    ${spokes} =    Run module action    list-spokes
+    ${spokes} =    Evaluate    json.loads($spokes)    modules=json
+    Should Be True    ${spokes}[0][connected]

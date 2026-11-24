@@ -151,7 +151,7 @@
         </div>
       </cv-column>
     </cv-row>
-    <cv-row v-if="config.mode === 'hub'">
+    <cv-row v-if="config.configured && config.mode === 'hub'">
       <cv-column>
         <cv-tile light class="mg-bottom">
           <h4 class="mg-bottom-sm">{{ $t("status.hub_nodes") }}</h4>
@@ -380,7 +380,6 @@ import {
 
 // Services that must run once configured, for each mode
 const LONG_RUNNING_SERVICES = {
-  standalone: ["openvpn-server", "openvpn-dns"],
   hub: [
     "openvpn-hub",
     "openvpn-hub-server",
@@ -415,7 +414,7 @@ export default {
       Restart20,
       Network_232,
       UserMultiple32,
-      config: { configured: false, host: "", port: 0, mode: "standalone" },
+      config: { configured: false, host: "", port: 0, mode: "hub" },
       spokes: [],
       vpn: { running: false, sessions: [], ca_expiry: "" },
       status: { instance: "", services: [], images: [], volumes: [] },
@@ -446,13 +445,11 @@ export default {
       return this.config.mode === "spoke" ? this.config.hub : this.config.host;
     },
     vpnAddress() {
-      // Address of this node for the VPN users: through its spoke on a hub, the server address otherwise
+      // Address of this node for the VPN users: through the spoke of the hub node
       if (!this.config.configured || this.config.mode === "spoke") {
         return "";
       }
-      return this.config.mode === "hub"
-        ? (this.config.spoke_ip || "").split("/")[0]
-        : this.config.server_ip;
+      return (this.config.spoke_ip || "").split("/")[0];
     },
     vpnDescription() {
       if (!this.config.configured) {
@@ -461,12 +458,7 @@ export default {
       if (this.config.mode === "spoke") {
         return this.$t("status.spoke_of_hub", { ip: this.config.spoke_ip });
       }
-      return this.$t(
-        this.config.mode === "hub"
-          ? "status.hub_server_port"
-          : "status.vpn_server_port",
-        { port: this.config.port }
-      );
+      return this.$t("status.hub_server_port", { port: this.config.port });
     },
     spokeColumns() {
       return [
@@ -556,7 +548,7 @@ export default {
           if (output.configured) {
             this.getVpnStatus();
           }
-          if (output.mode === "hub") {
+          if (output.configured && output.mode === "hub") {
             this.listSpokes();
           }
         },

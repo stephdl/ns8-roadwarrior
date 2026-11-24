@@ -12,12 +12,12 @@ import agent
 import ovpn_module as om
 
 request = json.load(sys.stdin)
-mode = request.get("mode", "standalone")
+mode = request.get("mode", "hub")
 
 if mode != "spoke" and os.path.exists(om.SPOKE_JOIN):
     # The old hub keeps the node in its list until the admin removes it there
     os.unlink(om.SPOKE_JOIN)
-if om.mode() == "hub" and mode != "hub":
+if om.mode() == "hub" and mode == "spoke":
     # Validation left only the spoke of this node: its address goes with the link
     om.save_spokes({})
 
@@ -30,7 +30,7 @@ if mode == "spoke":
     join = om.load_join()
     agent.set_env("OVPN_SPOKE_IP", join["ip"])
     agent.set_env("OVPN_RW_NETWORK", join["rw_network"])
-    # A spoke keeps the user settings it had, so a return to standalone finds them again
+    # A spoke keeps the user settings it had, so a return to hub finds them again
     agent.bind_user_domains([])
     sys.exit(0)
 
@@ -45,9 +45,8 @@ agent.set_env("OVPN_USER_DOMAIN", domain)
 agent.set_env("OVPN_TOTP_REQUIRED", str(bool(request.get("totp_required")) and password_mode))
 agent.bind_user_domains([domain] if domain else [])
 
-if mode == "hub":
-    # The nodes join on the cluster VPN address of this node, on a port of the node allocator
-    rdb = agent.redis_connect(use_replica=True)
-    agent.set_env("OVPN_VPN_IP", om.node_vpn_ip(rdb, os.environ["NODE_ID"]))
-    # The core reserved this port at install, from the udp-ports-demand label
-    agent.set_env("OVPN_S2S_PORT", os.environ["UDP_PORT"])
+# The nodes join on the cluster VPN address of this node, on a port of the node allocator
+rdb = agent.redis_connect(use_replica=True)
+agent.set_env("OVPN_VPN_IP", om.node_vpn_ip(rdb, os.environ["NODE_ID"]))
+# The core reserved this port at install, from the udp-ports-demand label
+agent.set_env("OVPN_S2S_PORT", os.environ["UDP_PORT"])

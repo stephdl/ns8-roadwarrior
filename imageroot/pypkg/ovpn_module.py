@@ -62,19 +62,20 @@ SETTINGS_DEFAULTS = {
     "OVPN_USER_DOMAIN": "",
     "OVPN_TOTP_REQUIRED": "False",
     "OVPN_EXPOSE_SAMBA": "False",
-    "OVPN_MODE": "standalone",
+    "OVPN_MODE": "hub",
     "OVPN_HUB": "",
 }
 
-MODES = ("standalone", "hub", "spoke")
+MODES = ("hub", "spoke")
 # Units of each mode. A hub also runs a spoke, so the apps of its own node are reached like the others.
 UNITS = {
-    "standalone": ["openvpn-server.service", "openvpn-dns.service"],
     "hub": ["openvpn-hub.service", "openvpn-hub-server.service", "openvpn-hub-dns.service",
             "openvpn-s2s.service", "openvpn-spoke.service"],
     "spoke": ["openvpn-spoke.service"],
 }
 ALL_UNITS = sorted({unit for units in UNITS.values() for unit in units})
+SERVER_UNIT = "openvpn-hub-server.service"
+DNS_UNIT = "openvpn-hub-dns.service"
 
 # Ports of samba, from ns8-samba create-module/70firewall
 SAMBA_PORTS = [
@@ -147,7 +148,7 @@ def is_configured():
 
 
 def mode():
-    return os.environ.get("OVPN_MODE") or "standalone"
+    return os.environ.get("OVPN_MODE") or "hub"
 
 
 def s2s_networks(rw_cidr):
@@ -170,11 +171,8 @@ def host_tun_ip(conf=None):
     conf = conf or settings()
     if mode() == "spoke":
         return os.environ.get("OVPN_SPOKE_IP", "")
-    if mode() == "hub":
-        link = s2s_networks(conf["OVPN_NETWORK"])
-        return f"{link['local_ip']}/{link['supernet'].prefixlen}"
-    net, server_ip = network_parts(conf["OVPN_NETWORK"])
-    return f"{server_ip}/{net.prefixlen}"
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    return f"{link['local_ip']}/{link['supernet'].prefixlen}"
 
 
 def users_network():
@@ -342,7 +340,7 @@ def save_spoke_certs(ca, cert):
 def spoke_hub_endpoint(rdb):
     """Address and port of the hub, read again at each start: the hub may move to another node."""
     if mode() == "hub":
-        hub, node_id = os.environ["MODULE_ID"], os.environ["NODE_ID"]
+        node_id = os.environ["NODE_ID"]
         port = os.environ.get("OVPN_S2S_PORT", "")
     else:
         hub = current_hub(rdb)
@@ -453,17 +451,16 @@ def write_runtime(rdb=None, skip_module=""):
         join = load_join()
         if join and save_spoke_certs(join["ca"], join["cert"]):
             changed.add("openvpn-spoke.service")
-    if mode() in ("hub", "spoke"):
-        remote, port = spoke_hub_endpoint(rdb)
-        if write_if_changed(SPOKE_ENV, env_text({
-            "OVPN_TUN": os.environ["OVPN_TUN"],
-            "SPOKE_REMOTE": remote,
-            "SPOKE_PORT": port,
-        })):
-            changed.add("openvpn-spoke.service")
-    if mode() == "spoke":
-        return changed
-    return changed | write_server_runtime(rdb, skip_module)
+    remote, port = spoke_hub_endpoint(rdb)
+    if write_if_changed(SPOKE_ENV, env_text({
+        "OVPN_TUN": os.environ["OVPN_TUN"],
+        "SPOKE_REMOTE": remote,
+        "SPOKE_PORT": port,
+    })):
+        changed.add("openvpn-spoke.service")
+    if mode() == "hub":
+        changed |= write_server_runtime(rdb, skip_module)
+    return changed
 
 
 def node_names(rdb, node_id, vpn_host, skip_module=""):
@@ -472,50 +469,38 @@ def node_names(rdb, node_id, vpn_host, skip_module=""):
 
 
 def write_server_runtime(rdb, skip_module=""):
-    """Files of the user server and of the resolver, plus the site-to-site files of a hub."""
+    """Files of the user server, of the resolver and of the site-to-site server."""
     conf = settings()
-    node_id = os.environ["NODE_ID"]
     net, server_ip = network_parts(conf["OVPN_NETWORK"])
     vpn_host = conf["OVPN_HOST"].lower()
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    spokes = current_spokes(rdb)
     # The node name serves cluster-admin and path routes: it must enter the tunnel too
-    own_names = node_names(rdb, node_id, vpn_host, skip_module) | ({socket.getfqdn().lower()} - {vpn_host} if "." in socket.getfqdn() else set())
-    push_routes = []
-    dcs = []
-    changed = set()
-    if mode() == "hub":
-        link = s2s_networks(conf["OVPN_NETWORK"])
-        spokes = current_spokes(rdb)
-        # Each name answers with the address of the node that serves it, the hub node first
-        addresses = {}
-        for host in own_names:
-            addresses[host] = link["local_ip"]
-        dcs_by_spoke = {}
-        for spoke_id, info in sorted(spokes.items()):
-            if spoke_id != os.environ["MODULE_UUID"]:
-                for host in node_names(rdb, info["node_id"], vpn_host, skip_module):
-                    addresses.setdefault(host, info["ip"])
-            expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_UUID"] else info.get("expose_samba")
-            samba = samba_on_node(rdb, info["node_id"]) if expose else None
-            if samba:
-                dcs.append(samba)
-                dcs_by_spoke[spoke_id] = samba
-        push_routes.append(f"{link['s2s'].network_address}/{link['s2s'].netmask}")
-        changed |= write_s2s_runtime(link, spokes, dcs_by_spoke)
-    else:
-        addresses = {host: server_ip for host in own_names}
-        samba = samba_on_node(rdb, node_id) if is_true(conf["OVPN_EXPOSE_SAMBA"]) else None
+    own_names = node_names(rdb, os.environ["NODE_ID"], vpn_host, skip_module) | ({socket.getfqdn().lower()} - {vpn_host} if "." in socket.getfqdn() else set())
+    # Each name answers with the address of the node that serves it, the hub node first
+    addresses = {host: link["local_ip"] for host in own_names}
+    dcs_by_spoke = {}
+    for spoke_id, info in sorted(spokes.items()):
+        if spoke_id != os.environ["MODULE_UUID"]:
+            for host in node_names(rdb, info["node_id"], vpn_host, skip_module):
+                addresses.setdefault(host, info["ip"])
+        expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_UUID"] else info.get("expose_samba")
+        samba = samba_on_node(rdb, info["node_id"]) if expose else None
         if samba:
-            dcs.append(samba)
+            dcs_by_spoke[spoke_id] = samba
+    dcs = list(dcs_by_spoke.values())
+    changed = write_s2s_runtime(link, spokes, dcs_by_spoke)
+
     hosts = sorted(addresses)
     domains = vpn_domains(hosts, vpn_host)
+    push_routes = [f"{link['s2s'].network_address}/{link['s2s'].netmask}"]
     for _, realm, ip in dcs:
         push_routes.append(f"{ip}/255.255.255.255")
         domains.add(realm)
     domains = sorted(domains)
 
     server_env = {
-        "OVPN_MODE": mode(),
-        "OVPN_TUN": HUB_RW_TUN if mode() == "hub" else os.environ["OVPN_TUN"],
+        "OVPN_TUN": HUB_RW_TUN,
         "OVPN_NETWORK": str(net.network_address),
         "OVPN_NETMASK": str(net.netmask),
         "OVPN_SERVER_IP": server_ip,
@@ -527,7 +512,7 @@ def write_server_runtime(rdb, skip_module=""):
         "DNS_DOMAINS": " ".join(domains),
     }
     if write_if_changed(SERVER_ENV, env_text(server_env)):
-        changed.add(server_unit())
+        changed.add(SERVER_UNIT)
     write_text(HOSTS, "".join(f"{addresses[host]} {host}\n" for host in hosts))
     dnsmasq = "domain-needed\n"
     for _, realm, ip in dcs:
@@ -575,22 +560,14 @@ def write_s2s_runtime(link, spokes, dcs_by_spoke):
     return {"openvpn-s2s.service"} if write_if_changed(S2S_ENV, env_text(s2s_env)) else set()
 
 
-def server_unit():
-    return "openvpn-hub-server.service" if mode() == "hub" else "openvpn-server.service"
-
-
-def dns_unit():
-    return "openvpn-hub-dns.service" if mode() == "hub" else "openvpn-dns.service"
-
-
 def apply_runtime(changed):
     """Restart what must restart, and let the resolver read its lists again."""
     # A unit writes the runtime files before it starts: it would wait for our lock forever
     unlock_state()
     for unit in sorted(changed):
         subprocess.run(["systemctl", "--user", "try-restart", unit], check=False)
-    if mode() != "spoke":
-        subprocess.run(["systemctl", "--user", "reload", dns_unit()], check=False)
+    if mode() == "hub":
+        subprocess.run(["systemctl", "--user", "reload", DNS_UNIT], check=False)
 
 
 def podman_exec(*args, check=True, input=None, container=CONTAINER):
@@ -604,7 +581,7 @@ def podman_exec(*args, check=True, input=None, container=CONTAINER):
 
 
 def server_running():
-    return subprocess.run(["systemctl", "--user", "-q", "is-active", server_unit()]).returncode == 0
+    return subprocess.run(["systemctl", "--user", "-q", "is-active", SERVER_UNIT]).returncode == 0
 
 
 def pki_list():

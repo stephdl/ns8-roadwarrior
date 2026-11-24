@@ -2,11 +2,11 @@
 
 OpenVPN road warrior server for NethServer 8.
 
-Remote users connect to one node. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
+Remote users connect to one node, the hub. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. Other nodes join the hub to be reached the same way. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
 
 See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
 
-The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach the LAN or Internet through the VPN. With [a hub](docs/network.md#a-hub-and-its-nodes) they reach the other nodes of the cluster.
+The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach the LAN or Internet through the VPN. They reach the nodes that [joined the hub](docs/network.md#a-hub-and-its-nodes).
 
 The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
 
@@ -34,7 +34,7 @@ Install one instance per node that runs apps you want to reach through the VPN.
 
 `host`, `port`, `network` and `auth_mode` are required, except for a node of a hub.
 
-- `mode`: `standalone` (default), `hub` or `spoke`. See [A hub and its nodes](docs/network.md#a-hub-and-its-nodes).
+- `mode`: `hub` (default) or `spoke`. See [A hub and its nodes](docs/network.md#a-hub-and-its-nodes).
 - `hub`: with `spoke`, the instance of the hub this node joins. A spoke sends only `mode`, `hub` and `expose_samba`.
 
 - `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
@@ -47,7 +47,7 @@ Install one instance per node that runs apps you want to reach through the VPN.
 
 Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
 
-To set up a hub, configure the instance of the entry node with `"mode": "hub"`. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
+Every configured instance is a hub unless it joins another one. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
 
     csr=$(api-cli run request-spoke-certificate --agent module/roadwarrior2 | jq .csr)
     join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr, \"expose_samba\": true}")

@@ -37,5 +37,5 @@ json.dump({
     "hub": conf["OVPN_HUB"],
     "hubs": om.list_hubs(rdb),
     # Address of this node on the link with the hub
-    "spoke_ip": om.host_tun_ip(conf) if om.mode() != "standalone" else "",
+    "spoke_ip": om.host_tun_ip(conf) if om.is_configured() else "",
 }, fp=sys.stdout)

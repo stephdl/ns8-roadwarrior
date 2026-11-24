@@ -62,11 +62,11 @@
         "mode": {
             "type": "string",
             "enum": [
-                "standalone",
                 "hub",
                 "spoke"
             ],
-            "description": "standalone: the users reach this node. hub: the users reach every node that joins this instance. spoke: this node joins a hub and has no users."
+            "default": "hub",
+            "description": "hub: the users reach this node and every node that joins this instance. spoke: this node joins a hub and has no users."
         },
         "hub": {
             "type": "string",

@@ -50,20 +50,11 @@ push \"dns search-domains ${DNS_DOMAINS}\""
 push \"dhcp-option DOMAIN ${domain}\""
         done
     fi
-    if [ "${OVPN_MODE}" = "hub" ]; then
-        # The hub runs in its own network namespace: OpenVPN creates the tun and its routes there
-        tun_lines=""
-    else
-        # The core tun-manager owns the address of the tun and the host routes
-        tun_lines="ifconfig-noexec
-route-noexec"
-    fi
     cat > /etc/openvpn/server.conf <<EOF
 dev ${OVPN_TUN}
 dev-type tun
 topology subnet
 server ${OVPN_NETWORK} ${OVPN_NETMASK}
-${tun_lines}
 # Kernel DCO needs CAP_NET_ADMIN of the host to add a peer, a rootless module never has it
 disable-dco
 port ${OVPN_PORT}

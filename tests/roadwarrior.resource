@@ -66,7 +66,7 @@ Fingerprint
     RETURN    ${output}
 
 Server is running
-    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-server
+    ${output} =    Execute Command    runagent -m ${module_id} systemctl --user is-active openvpn-hub-server
     Should Be Equal    ${output}    active
 
 Module environment
