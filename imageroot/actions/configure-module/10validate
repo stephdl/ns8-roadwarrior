@@ -36,9 +36,12 @@ def overlaps_node(wanted):
 
 if mode == "spoke":
     om.check_can_be_spoke()
+    join = request.get("join") or om.load_join()
+    # A clone drops the join it copied: it must join, not wait for a hub
+    if not join:
+        om.fail_validation("hub", request["hub"], "not_joined")
     if request["hub"] not in [hub["module_id"] for hub in om.list_hubs(rdb)]:
         om.fail_validation("hub", request["hub"], "hub_not_found")
-    join = request.get("join") or om.load_join()
     # A restored hub has a new id: the uuid it gave still finds it
     hub_ids = {join.get("hub")} | {h["module_id"] for h in om.list_hubs(rdb) if h["module_uuid"] == join.get("hub_uuid")}
     if request["hub"] not in hub_ids:
