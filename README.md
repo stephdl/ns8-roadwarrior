@@ -165,7 +165,7 @@ The backup holds the settings, the PKI with the revocation list, the accounts, t
 
 The CA is the same, so the profiles already sent stay valid. They point to the old host until the host name points to the new node.
 
-On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. When the original is removed, the copy starts on its own: a restore or a move with "replace" ends that way. After a plain clone, remove the original or change the settings of the copy. A clone of a node of a hub does not reuse the join of its original: join it again.
+On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. When the original is removed, the copy starts on its own: a restore or a move with "replace" ends that way. After a plain clone, remove the original or change the settings of the copy. A clone of a node of a hub does not reuse the join of its original: join it again. A node restored before its hub stays stopped and starts when the hub is configured.
 
 ## User interface
 

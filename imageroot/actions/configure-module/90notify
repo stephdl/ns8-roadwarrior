@@ -7,6 +7,7 @@
 
 # The hub reads what a node opens to the users from the environment of that node.
 # Tell it to read again: it pushes the route and the realm of a shared DC.
+# A hub tells its nodes it is up: a node restored before it waits for that.
 
 import json
 import os
@@ -19,4 +20,10 @@ if om.mode() == "spoke":
         "module_id": os.environ["MODULE_ID"],
         "module_uuid": os.environ["MODULE_UUID"],
         "hub": om.current_hub(rdb),
+    }))
+else:
+    rdb = agent.redis_connect(privileged=True)
+    rdb.publish(f"{os.environ['AGENT_ID']}/event/hub-changed", json.dumps({
+        "module_id": os.environ["MODULE_ID"],
+        "module_uuid": os.environ["MODULE_UUID"],
     }))

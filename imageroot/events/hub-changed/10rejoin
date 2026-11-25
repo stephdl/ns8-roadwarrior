@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A node restored before its hub stays stopped and leaves a marker. Start it once the hub is up.
+
+import json
+import os
+import subprocess
+import sys
+import ovpn_module as om
+
+event = json.load(sys.stdin)
+if om.mode() != "spoke" or not os.path.exists(om.WAITING):
+    sys.exit(0)
+if event.get("module_uuid") != om.load_join().get("hub_uuid"):
+    sys.exit(0)
+sys.exit(subprocess.run(["ovpn-reconfigure"], check=False).returncode)

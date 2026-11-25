@@ -11,7 +11,8 @@
 #
 # If the original instance still runs on this node, its port and network conflict.
 # The copy then stays stopped and leaves a marker: the module-removed event starts it
-# once the original is gone. Other validation errors need the admin, not a retry.
+# once the original is gone. A node restored before its hub leaves the same marker, and
+# the hub-changed event starts it. Other validation errors need the admin, not a retry.
 
 import json
 import os
@@ -42,8 +43,9 @@ else:
         "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
         "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
     }
-# Errors an original instance on the same node causes, and that its removal clears
-CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
+# Errors an original instance on the same node causes, and that its removal clears.
+# A missing hub comes back with a restore of the hub.
+CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use"), ("hub", "hub_not_found")}
 
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
@@ -51,7 +53,7 @@ if response["exit_code"] == 2:
     errors = response["output"] if isinstance(response["output"], list) else []
     if errors and all((e.get("parameter"), e.get("error")) in CONFLICTS for e in errors):
         open(om.WAITING, "w").close()
-        print(agent.SD_WARNING + "The VPN stays stopped until the instance that holds its network and port is removed: "
+        print(agent.SD_WARNING + "The VPN stays stopped until the instance that holds its network and port is removed, or the hub is back: "
               + json.dumps(errors), file=sys.stderr)
     else:
         print(agent.SD_WARNING + "The VPN stays stopped, its settings are not valid on this node. Fix them and save again: "

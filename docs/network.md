@@ -263,13 +263,13 @@ The hub resolves the names again on three events. `hosts-changed` comes from Tra
 
 ### Joining
 
-No instance has rights on another one, and nothing is stored in Redis: a node only publishes `spoke-changed` on its own event channel. A grant like `roadwarrior@any` also matches the instance itself and replaces its `selfadm` role: restore and clone could no longer call `configure-module`. The admin, or the UI of the node, carries the request:
+No instance has rights on another one, and nothing is stored in Redis: a node only publishes `spoke-changed`, and a hub `hub-changed`, on its own event channel. A grant like `roadwarrior@any` also matches the instance itself and replaces its `selfadm` role: restore and clone could no longer call `configure-module`. The admin, or the UI of the node, carries the request:
 
 1. `request-spoke-certificate` on the node makes its key, once, and returns a certificate request. The key never leaves the node.
 2. `add-spoke` on the hub signs it with the CA of the link, which is apart from the CA of the users, and returns the address of the node.
 3. `configure-module` on the node takes that answer as `join`.
 
-The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again. A node cloned to a new uuid drops the join it copied, so it does not take the link of its original: join it again from its settings.
+The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again. A node cloned to a new uuid drops the join it copied, so it does not take the link of its original: join it again from its settings. A node restored before its hub stays stopped. A hub publishes `hub-changed` at each save, and the node starts then.
 
 `remove-spoke` on the hub revokes the certificate of a node and ends its link through the management socket of the link server. The link server reads the new revocation list at the next connection. The node keeps trying until its role changes.
 
