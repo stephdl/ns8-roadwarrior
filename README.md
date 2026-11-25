@@ -112,13 +112,13 @@ The VPN carries only the network of the VPN and the names of the node. NetworkMa
 
 OpenVPN Connect, OpenVPN GUI and Tunnelblick follow the server and need no change.
 
-The server needs OpenVPN 2.6 features for split DNS. Older clients still connect but may not use the VPN resolver.
+The server runs OpenVPN 2.7. Split DNS needs a 2.6 or newer client. Older clients still connect but may not use the VPN resolver.
 
 In password mode the client asks for the user name and the domain password. When the account has an authenticator, the server checks the password, then answers with an OpenVPN dynamic challenge (CRV1). The client opens a second prompt "Authenticator code" and connects again with the 6 digits. The code is never appended to the password. A pending challenge lasts 3 minutes and works once: a wrong code sends the user back to the password.
 
 NetworkManager, OpenVPN Connect, OpenVPN GUI and Tunnelblick handle the dynamic challenge. The `openvpn` command line client handles it with `auth-retry interact`, which the profile sets.
 
-The module was tested with the `openvpn` 2.6 command line client and its management interface, which is the path the graphical clients use.
+The module was tested with the `openvpn` 2.7 command line client and its management interface, which is the path the graphical clients use.
 
 ## Authenticator (TOTP)
 
