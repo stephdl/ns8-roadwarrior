@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timezone
 
 import agent
-from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -370,7 +370,7 @@ def own_spoke_is_valid(conf=None):
         with open(SPOKE_CA, "rb") as f:
             ca = x509.load_pem_x509_certificate(f.read())
         cert.verify_directly_issued_by(ca)
-    except (OSError, ValueError, TypeError, x509.InvalidSignature):
+    except (OSError, ValueError, TypeError, InvalidSignature):
         return False
     current_ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER, check=False).stdout
     if current_ca.strip() != ca.public_bytes(serialization.Encoding.PEM).decode().strip():
