@@ -6,6 +6,7 @@
 # Network namespace of a hub. The user tunnel and the site-to-site tunnel both live in it,
 # so the hub forwards between them with its own rules: the firewall of the node is not involved.
 # The user port is public, the site-to-site port listens on the cluster VPN address only.
+# The loopback of the node, where ldapproxy listens, is reached at 169.254.1.2 for password checks.
 
 [Unit]
 Description=Podman openvpn-hub.service
@@ -24,7 +25,7 @@ ExecStartPre=/usr/bin/podman pod create --infra-conmon-pidfile %t/openvpn-hub.pi
     --pod-id-file %t/openvpn-hub.pod-id \
     --name openvpn-hub \
     --replace \
-    --network=pasta \
+    --network=pasta:--map-host-loopback,169.254.1.2 \
     --sysctl net.ipv4.ip_forward=1 \
     --publish ${OVPN_PORT}:${OVPN_PORT}/udp \
     --publish ${OVPN_VPN_IP}:${OVPN_S2S_PORT}:${OVPN_S2S_PORT}/udp

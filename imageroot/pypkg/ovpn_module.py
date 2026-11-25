@@ -54,6 +54,8 @@ DISABLED = "ovpn/disabled.json"
 # Left by a restored or moved copy that waits for the original to leave the node
 WAITING = "waiting-for-original"
 LDAP_PASSWORD = "secrets/ldap-bind-password"
+# Loopback of the node seen from the hub pod: --map-host-loopback of openvpn-hub.service
+HOST_LOOPBACK = "169.254.1.2"
 TOTP_FILE = "secrets/totp.json"
 ACCOUNTS = "accounts.json"
 
@@ -630,6 +632,10 @@ def write_server_runtime(rdb, skip_module=""):
             log(agent.SD_WARNING + f"user domain {domain} not found: password logins will fail")
         else:
             auth.update({k: ldap[k] for k in ("host", "port", "schema", "base_dn", "bind_dn")})
+            if ipaddress.ip_address(socket.gethostbyname(ldap["host"])).is_loopback:
+                # The server runs in the private namespace of the hub, where ldapproxy is not on
+                # 127.0.0.1: the hub unit maps the loopback of the node to this address
+                auth["host"] = HOST_LOOPBACK
             write_private(LDAP_PASSWORD, ldap["bind_password"])
     save_json(AUTH_JSON, auth)
     write_disabled(load_json(ACCOUNTS, {}))
