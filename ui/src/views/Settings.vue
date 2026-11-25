@@ -200,10 +200,11 @@
               </template>
             </template>
             <NsToggle
+              v-if="sambaAvailable"
               value="exposeSamba"
               :label="$t('settings.expose_samba')"
               v-model="exposeSamba"
-              :disabled="stillLoading || !sambaAvailable"
+              :disabled="stillLoading"
               class="mg-bottom"
             >
               <template #tooltip>

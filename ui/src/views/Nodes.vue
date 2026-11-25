@@ -32,7 +32,7 @@
     <cv-row>
       <cv-column>
         <cv-tile light>
-          <p class="mg-bottom">{{ $t("nodes.description") }}</p>
+          <p class="mg-bottom-md">{{ $t("nodes.description") }}</p>
           <div class="toolbar">
             <NsButton
               kind="secondary"
@@ -82,7 +82,7 @@
                 :title="$t('status.not_configured')"
               >
                 <template #description>
-                  <div class="mg-bottom">
+                  <div class="mg-bottom-md">
                     {{ $t("nodes.not_configured_description") }}
                   </div>
                   <NsButton
@@ -239,9 +239,13 @@ export default {
         return this.spokes;
       }
       return this.spokes.filter((row) =>
-        [this.nodeLabel(row), String(row.node_id), row.module_id, row.ip].some(
-          (value) => (value || "").toLowerCase().includes(text)
-        )
+        [
+          this.nodeLabel(row),
+          row.leader ? this.$t("nodes.leader") : this.$t("nodes.worker"),
+          String(row.node_id),
+          row.module_id,
+          row.ip,
+        ].some((value) => (value || "").toLowerCase().includes(text))
       );
     },
     getConfiguration() {

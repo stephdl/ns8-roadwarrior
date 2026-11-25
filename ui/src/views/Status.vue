@@ -68,7 +68,7 @@
                 <div v-if="vpnAddress" class="card-row">
                   {{ $t("status.vpn_address", { ip: vpnAddress }) }}
                 </div>
-                <div v-if="config.configured" class="card-row">
+                <div v-if="config.configured" class="card-row mg-top-sm">
                   <NsTag
                     v-if="vpnLoaded"
                     :label="
