@@ -233,6 +233,7 @@
     "server_not_running": "Le hub {hub} ne tourne pas. Démarrez-le d'abord",
     "not_a_hub": "{hub} n'est plus un hub",
     "not_joined": "Ce nœud n'a jamais rejoint ce hub. Enregistrez à nouveau pour le rejoindre",
+    "link_overlap": "Le réseau de liaison de ce hub chevauche un réseau de ce nœud",
     "module_not_found": "Le hub ne connaît pas cette instance",
     "csr_mismatch": "La requête de ce nœud ne porte pas son propre nom. Enregistrez à nouveau",
     "hub_on_leader": "nœud leader {node}",

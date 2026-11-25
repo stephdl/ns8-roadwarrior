@@ -233,6 +233,7 @@
     "server_not_running": "Der Hub {hub} läuft nicht. Starten Sie ihn zuerst",
     "not_a_hub": "{hub} ist kein Hub mehr",
     "not_joined": "Dieser Knoten ist diesem Hub nie beigetreten. Speichern Sie erneut, um beizutreten",
+    "link_overlap": "Das Verbindungsnetz dieses Hubs überschneidet sich mit einem Netz dieses Knotens",
     "module_not_found": "Der Hub kennt diese Instanz nicht",
     "csr_mismatch": "Die Anfrage dieses Knotens trägt nicht seinen eigenen Namen. Erneut speichern",
     "hub_on_leader": "Leader-Knoten {node}",

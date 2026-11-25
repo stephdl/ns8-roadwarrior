@@ -233,6 +233,7 @@
     "server_not_running": "L'hub {hub} non è in esecuzione. Avvialo prima",
     "not_a_hub": "{hub} non è più un hub",
     "not_joined": "Questo nodo non si è mai unito a questo hub. Salva di nuovo per unirti",
+    "link_overlap": "La rete di collegamento di questo hub si sovrappone a una rete di questo nodo",
     "module_not_found": "L'hub non conosce questa istanza",
     "csr_mismatch": "La richiesta di questo nodo non porta il suo nome. Salva di nuovo",
     "hub_on_leader": "nodo leader {node}",

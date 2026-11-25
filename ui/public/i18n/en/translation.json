@@ -233,6 +233,7 @@
     "server_not_running": "The hub {hub} is not running. Start it first",
     "not_a_hub": "{hub} is not a hub anymore",
     "not_joined": "This node never joined this hub. Save again to join it",
+    "link_overlap": "The link network of this hub overlaps a network of this node",
     "module_not_found": "The hub does not know this instance",
     "csr_mismatch": "The request of this node does not carry its own name. Save again",
     "hub_on_leader": "leader node {node}",

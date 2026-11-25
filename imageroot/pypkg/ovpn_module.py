@@ -252,12 +252,14 @@ def save_spokes(spokes):
 def assign_spoke_ip(spokes, uuid, conf=None):
     """Keep the address of a node that joins again, else take the first free one."""
     conf = conf or settings()
-    if uuid in spokes:
-        return spokes[uuid]["ip"]
     link = s2s_networks(conf["OVPN_NETWORK"])
     if uuid == os.environ["MODULE_UUID"]:
         return link["local_ip"]
-    taken = {link["hub_ip"], link["local_ip"]} | {info["ip"] for info in spokes.values()}
+    # An address of an older network of the hub is not kept
+    if uuid in spokes and ipaddress.ip_address(spokes[uuid]["ip"]) in link["s2s"]:
+        return spokes[uuid]["ip"]
+    others = {info["ip"] for u, info in spokes.items() if u != uuid}
+    taken = {link["hub_ip"], link["local_ip"]} | others
     for host in link["s2s"].hosts():
         if str(host) not in taken:
             return str(host)

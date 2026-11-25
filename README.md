@@ -48,7 +48,7 @@ Debian 13 does not work for now. With kernel 6.12.117 a rootless container canno
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
 - `expose_ssh`: accept SSH from the users. See [Where the packets can go](docs/network.md#where-the-packets-can-go).
 
-Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `link_not_private` (the network next to it is public, as with `192.168.0.0/16`), `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `link_not_private` (the network next to it is public, as with `192.168.0.0/16`), `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `link_overlap` (the link network of the hub overlaps a network of this node), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role or changing its network).
 
 Every configured instance is a hub unless it joins another one. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
 
