@@ -43,9 +43,9 @@ else:
         "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
         "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
     }
-# Errors an original instance on the same node causes, and that its removal clears.
-# A missing hub comes back with a restore of the hub.
-CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use"), ("hub", "hub_not_found")}
+# Errors an original instance on the same node causes, and that its removal clears:
+# its tun holds the network or the link address. A missing hub comes back with a restore of the hub.
+CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use"), ("hub", "link_overlap"), ("hub", "hub_not_found")}
 
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
