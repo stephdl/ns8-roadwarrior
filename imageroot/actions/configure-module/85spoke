@@ -21,3 +21,6 @@ if om.mode() == "hub" and not om.own_spoke_is_valid():
     om.apply_runtime(om.write_runtime())
     # The spoke of this node joins with the certificate just signed
     subprocess.run(["systemctl", "--user", "restart", "openvpn-spoke.service"], check=True)
+elif om.mode() == "hub":
+    # A restore or a move keeps a valid certificate: start the spoke, a running one is left alone
+    subprocess.run(["systemctl", "--user", "start", "openvpn-spoke.service"], check=True)
