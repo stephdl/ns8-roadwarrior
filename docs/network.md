@@ -251,7 +251,7 @@ The link takes the network next to the VPN network, in the same supernet. With `
 | `10.8.1.2` | spoke of the hub node |
 | `10.8.1.3` and up | spokes of the other nodes, in the order they join |
 
-The validation of the hub refuses a VPN network whose supernet overlaps a node network or the cluster VPN.
+The validation of the hub refuses a VPN network whose supernet overlaps a node network or the cluster VPN. It also refuses a network whose neighbour is public: the neighbour of `192.168.0.0/16` is `192.169.0.0/16`.
 
 ### DNS
 
@@ -259,11 +259,11 @@ The resolver of the hub answers each app name with the address of the spoke of t
 
 The names come from the real routes of each Traefik, read with `list-routes`. The hosts set of Traefik keeps the name of a route moved to another node, so it would send the users to a node without that route. When a name has a route on two nodes, the node of the hub wins: it is a wrong configuration or a clone in progress, so the hub does not warn about it.
 
-The hub resolves the names again on three events. `hosts-changed` comes from Traefik when its hosts set changes. `module-removed` ends a move, a clone or a restore with replace, which leave the hosts set unchanged: the routes of the removed module are left out, as Traefik may still list them for a moment. `spoke-changed` comes from a node of the hub when its settings are saved: the hub reads again in the environment of the node whether it shares its Samba DC or its SSH, the only place this is set. `module-added` is useless here, the new module has no route yet.
+The hub resolves the names again on three events. `hosts-changed` comes from Traefik when its hosts set changes. `module-removed` ends a move, a clone or a restore with replace, which leave the hosts set unchanged: the routes of the removed module are left out, as Traefik may still list them for a moment. `spoke-changed` comes from a node of the hub when its settings are saved: the hub reads again in the environment of the node whether it shares its Samba DC, the only place this is set, and pushes or drops the route to the DC. `module-added` is useless here, the new module has no route yet.
 
 ### Joining
 
-No instance has rights on another one, and nothing is written to Redis. A grant like `roadwarrior@any` also matches the instance itself and replaces its `selfadm` role: restore and clone could no longer call `configure-module`. The admin, or the UI of the node, carries the request:
+No instance has rights on another one, and nothing is stored in Redis: a node only publishes `spoke-changed` on its own event channel. A grant like `roadwarrior@any` also matches the instance itself and replaces its `selfadm` role: restore and clone could no longer call `configure-module`. The admin, or the UI of the node, carries the request:
 
 1. `request-spoke-certificate` on the node makes its key, once, and returns a certificate request. The key never leaves the node.
 2. `add-spoke` on the hub signs it with the CA of the link, which is apart from the CA of the users, and returns the address of the node.
@@ -275,7 +275,7 @@ The node keeps the answer in its backup, so a restore or a new save needs no new
 
 ### Node actions keep the users connected
 
-The admin often works through the VPN. So `add-spoke`, `remove-spoke` and the events never restart the user server: the new routes and domains apply at the next session of each client. Only the link server restarts, when the route to a Samba DC changes. The user server restarts only when `configure-module` changes its own settings.
+The admin often works through the VPN. So `add-spoke`, `remove-spoke` and the events never restart the user server: the new routes and domains apply at the next session of each client. Only the link server restarts, when the route to a Samba DC changes. The user server restarts only when `configure-module` changes its own settings. A save of the hub keeps the certificate of the spoke of its node while it is valid, so the link of that node stays up.
 
 ### Throughput
 

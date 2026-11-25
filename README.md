@@ -39,14 +39,14 @@ Install one instance per node that runs apps you want to reach through the VPN.
 
 - `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
 - `port`: UDP port, from 1024 to 65535.
-- `network`: private IPv4 network from /16 to /28. It must not overlap the cluster network or a node interface.
+- `network`: private IPv4 network from /16 to /28. The hub also takes the network next to it to link the nodes, so that pair must not overlap the cluster network or a node interface, and both halves must be private.
 - `auth_mode`: `certificate`, or `certificate_password` to also check the user domain password.
 - `user_domain`: required with `certificate_password`.
 - `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
 - `expose_ssh`: accept SSH from the users. See [Where the packets can go](docs/network.md#where-the-packets-can-go).
 
-Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `link_not_private` (the network next to it is public, as with `192.168.0.0/16`), `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
 
 Every configured instance is a hub unless it joins another one. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
 
@@ -54,7 +54,7 @@ Every configured instance is a hub unless it joins another one. The UI joins the
     join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr}")
     api-cli run configure-module --agent module/roadwarrior2 --data "{\"mode\": \"spoke\", \"hub\": \"roadwarrior1\", \"expose_samba\": true, \"join\": $join}"
 
-`list-spokes` on the hub lists the nodes and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
+`list-spokes` on the hub lists the nodes, what each one shares, read from the settings of the node, and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
 
 While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. The errors are `host_locked`, `port_locked`, `network_locked` and `auth_mode_locked`. Host, port and login prompt are written in every profile already sent, and the network in the HTTP route allowlists. Remove all the accounts to change them.
 
@@ -69,8 +69,6 @@ While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. T
 Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In password mode, use the user name of the user domain: the login must match the certificate name.
 
 `remove-account` revokes the certificate and closes the session.
-
-`download-client-config` and `enroll-totp` encrypt their output for the browser that sends a `public_key`, as the UI does. Without `public_key`, the output is in plain text. Use that form only to troubleshoot: the core keeps task output in Redis for some hours, and Redis replicates it to every node, so the client key or the TOTP secret stays readable there. Prefer the UI to hand a profile or a secret to a user.
 
 `kill-session` closes the open session and tells the client to stop instead of reconnecting. The session token of the account stops working too, so the user must type the password and the authenticator code again. It returns `no_session` if the account is not connected.
 
@@ -97,7 +95,7 @@ In password mode the profile asks for the user name and the password. The authen
 
 In certificate mode the profile alone gives access. Send it through a safe channel.
 
-The UI encrypts the profile and the authenticator secret for the browser: the core keeps task output in Redis for hours, and only ciphertext lands there. Called from `api-cli` without `public_key`, the actions return plain text.
+`download-client-config` and `enroll-totp` encrypt their output for the browser that sends a `public_key`, as the UI does: the core keeps task output in Redis for some hours, and only ciphertext lands there. Without `public_key`, the output is in plain text. Use that form only to troubleshoot: Redis replicates it to every node, so the client key or the TOTP secret stays readable there. Prefer the UI to hand a profile or a secret to a user.
 
 ## Clients
 
@@ -167,7 +165,7 @@ On the same node as the original instance, the copy cannot take the same port an
 
 ## User interface
 
-The pages are Status, Accounts, Sessions, Settings and About. The UI ships in English, German, Spanish, Basque, French, Italian, Portuguese and Brazilian Portuguese.
+The pages are Status, Accounts, Sessions, Nodes, Settings and About. The Nodes page of a hub lists its nodes, with a search. On a node of a hub, Accounts, Sessions and Nodes stay in the menu but show no table: a button opens the same page on the hub. The UI ships in English, German, Spanish, Basque, French, Italian, Portuguese and Brazilian Portuguese.
 
 ## Uninstall
 
