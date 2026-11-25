@@ -118,7 +118,7 @@ Import the `.ovpn` file in an OpenVPN client:
 - macOS: Tunnelblick, https://tunnelblick.net/
 - Linux: NetworkManager with the OpenVPN plugin, or the `openvpn` command
 
-The VPN carries only the network of the VPN and the names of the node. NetworkManager does not follow the routes of the server: after the import, it sends all the traffic into the tunnel, and the client loses Internet. In the IPv4 settings of the connection, check "Use this connection only for resources on its network", or run:
+The VPN carries only the VPN network, the link network of the nodes and the routes to the shared domain controllers. NetworkManager does not follow the routes of the server: after the import, it sends all the traffic into the tunnel, and the client loses Internet. In the IPv4 settings of the connection, check "Use this connection only for resources on its network", or run:
 
     nmcli connection modify "NAME@HOST" ipv4.never-default yes ipv6.never-default yes
 
@@ -155,13 +155,11 @@ The history keeps the last 15000 events of the instance, trimmed when the file p
 
 ## DNS
 
-A dnsmasq instance listens on the VPN address of the node. It answers the host names of the node HTTP routes and the FQDN of the node with that address, and forwards the Samba realm to the domain controller of the node. Other names go to the resolver of the node.
+The hub runs a dnsmasq resolver on the first address of the VPN network, for example `10.8.0.1`. It answers the host names of the HTTP routes of every node of the hub with the address of the spoke of that node, and the FQDN of the hub node with the address of its own spoke. It forwards the Samba realm of each shared domain controller to that controller. Other names go to the resolver of the hub node. See [DNS](docs/network.md#dns-1) for the hub and its nodes.
 
-The host of the VPN server is never answered with the VPN address, so a client can always reconnect. Use a dedicated name for it, like `vpn.example.org`: if it is the FQDN of the node, cluster-admin on that name stays outside the tunnel.
+The host of the VPN server is never answered through the VPN, so a client can always reconnect. Use a dedicated name for it, like `vpn.example.org`: if it is the FQDN of the node, cluster-admin on that name stays outside the tunnel.
 
 See [Use the VPN](docs/network.md#use-the-vpn) to check that the traffic of a client goes through the tunnel.
-
-A web app of another node of the cluster can be kept for the VPN clients with two HTTP routes, see [A web app of another node](docs/network.md#a-web-app-of-another-node).
 
 ## Status
 
@@ -169,7 +167,7 @@ A web app of another node of the cluster can be kept for the VPN clients with tw
 
 ## Backup, restore, clone and move
 
-The backup holds the settings, the PKI with the revocation list, the accounts, the authenticator secrets, the used codes and the login history. A restore, a clone or a move runs `configure-module` again with the saved settings: it creates the tun, the firewall zone and the public port on the target node.
+The backup holds the settings, the PKI with the revocation list, the accounts, the authenticator secrets, the used codes and the login history. A restore, a clone or a move runs `configure-module` again with the saved settings: it creates the tun, the firewall zone and, for a hub, the public port on the target node.
 
 The CA is the same, so the profiles already sent stay valid. They point to the old host until the host name points to the new node.
 
