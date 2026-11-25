@@ -18,6 +18,8 @@ The module pulls a second image, `ghcr.io/stephdl/roadwarrior-server`, that runs
 
 Install one instance per node that runs apps you want to reach through the VPN.
 
+Debian 13 does not work for now. With kernel 6.12.117 a rootless container cannot open a tun that has no owner, so OpenVPN fails with `Cannot ioctl TUNSETIFF ...: Operation not permitted`. The bug is NethServer/dev#8334, tracked here in #16. The fix is NethServer/ns8-core#1422: once a core with it is released, the module requires that core and Debian 13 works. Rocky Linux 9 is not affected.
+
 ## Configure
 
     api-cli run configure-module --agent module/roadwarrior1 --data - <<EOF
