@@ -27,6 +27,7 @@ json.dump({
     "user_domain": conf["OVPN_USER_DOMAIN"],
     "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
     "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+    "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
     "user_domains": agent.ldapproxy.Ldapproxy().get_domains_list(),
     "samba_available": samba is not None,
     "server_ip": server_ip,

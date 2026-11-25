@@ -13,6 +13,7 @@
             "user_domain": "example.org",
             "totp_required": false,
             "expose_samba": true,
+            "expose_ssh": false,
             "user_domains": [
                 "example.org"
             ],
@@ -36,6 +37,7 @@
         "user_domain",
         "totp_required",
         "expose_samba",
+        "expose_ssh",
         "user_domains",
         "samba_available",
         "server_ip",
@@ -69,6 +71,9 @@
             "type": "boolean"
         },
         "expose_samba": {
+            "type": "boolean"
+        },
+        "expose_ssh": {
             "type": "boolean"
         },
         "user_domains": {

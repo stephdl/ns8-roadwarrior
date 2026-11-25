@@ -26,6 +26,7 @@ if module_id == os.environ["MODULE_ID"] or not node_id or not uuid:
 if not om.server_running():
     om.fail_validation("module_id", module_id, "server_not_running")
 
-joined = om.register_spoke(module_id, uuid, node_id, request["csr"], request.get("expose_samba", False))
+joined = om.register_spoke(module_id, uuid, node_id, request["csr"], request.get("expose_samba", False),
+                             request.get("expose_ssh", False))
 om.apply_runtime(om.write_runtime(rdb))
 json.dump(joined, fp=sys.stdout)

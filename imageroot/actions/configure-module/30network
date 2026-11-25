@@ -29,8 +29,7 @@ if not tun_exists or os.environ.get("OVPN_TUN_IP") != tun_ip:
     agent.assert_exp(agent.add_tun(tun, tun_ip), "tun creation failed")
     agent.set_env("OVPN_TUN_IP", tun_ip)
 
-# The core refuses an empty rule list. SSH stays closed to the VPN clients.
-rules = [f"rule family=ipv4 source address={om.users_network()} port port=22 protocol=tcp reject"]
+rules = om.zone_rules(om.is_true(conf["OVPN_EXPOSE_SSH"]))
 agent.assert_exp(agent.add_custom_zone(tun, tun, om.firewall_ports(om.is_true(conf["OVPN_EXPOSE_SAMBA"])), rules),
                  "firewall zone configuration failed")
 if om.mode() == "spoke":

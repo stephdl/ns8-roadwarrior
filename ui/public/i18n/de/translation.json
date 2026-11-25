@@ -215,6 +215,8 @@
     "totp_needs_password": "Der Authenticator erfordert Anmeldungen mit Passwort",
     "expose_samba": "Dateiserver für das VPN öffnen",
     "expose_samba_tooltip": "Öffnet die Ports des Samba-Domänencontrollers dieses Knotens und löst seine Domäne für die Clients auf.",
+    "expose_ssh": "SSH für das VPN öffnen",
+    "expose_ssh_tooltip": "Erlaubt jedem VPN-Benutzer, SSH dieses Knotens zu erreichen, auch über seine private Adresse. Ohne diese Option wird SSH zu einer im VPN gerouteten Adresse abgelehnt. Die öffentliche Adresse ist nicht betroffen.",
     "enabled": "Aktiviert",
     "disabled": "Deaktiviert",
     "save": "Speichern",

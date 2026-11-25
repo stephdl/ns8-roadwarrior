@@ -215,6 +215,8 @@
     "totp_needs_password": "O autenticador requer acessos com palavra-passe",
     "expose_samba": "Abrir o servidor de ficheiros à VPN",
     "expose_samba_tooltip": "Abre as portas do controlador de domínio Samba deste nó e resolve o seu domínio para os clientes.",
+    "expose_ssh": "Abrir o SSH à VPN",
+    "expose_ssh_tooltip": "Permite que cada utilizador VPN alcance o SSH deste nó, também pelo seu endereço privado. Sem isso, o SSH para um endereço encaminhado na VPN é recusado. O endereço público não é afetado.",
     "enabled": "Ativado",
     "disabled": "Desativado",
     "save": "Guardar",

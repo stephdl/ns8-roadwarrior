@@ -216,6 +216,23 @@
                 $t("settings.enabled")
               }}</template>
             </NsToggle>
+            <NsToggle
+              value="exposeSsh"
+              :label="$t('settings.expose_ssh')"
+              v-model="exposeSsh"
+              :disabled="stillLoading"
+              class="mg-bottom"
+            >
+              <template #tooltip>
+                {{ $t("settings.expose_ssh_tooltip") }}
+              </template>
+              <template slot="text-left">{{
+                $t("settings.disabled")
+              }}</template>
+              <template slot="text-right">{{
+                $t("settings.enabled")
+              }}</template>
+            </NsToggle>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -279,6 +296,7 @@ export default {
       userDomains: [],
       totpRequired: false,
       exposeSamba: false,
+      exposeSsh: false,
       sambaAvailable: false,
       ipAllowlist: "",
       hasAccounts: false,
@@ -378,6 +396,7 @@ export default {
       this.totpRequired = config.totp_required;
       this.sambaAvailable = config.samba_available;
       this.exposeSamba = config.expose_samba && config.samba_available;
+      this.exposeSsh = config.expose_ssh;
       this.ipAllowlist = config.ip_allowlist;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
@@ -453,6 +472,7 @@ export default {
         user_domain: passwordMode ? this.userDomain : "",
         totp_required: passwordMode && this.totpRequired,
         expose_samba: this.exposeSamba,
+        expose_ssh: this.exposeSsh,
       });
     },
     configureFailed(message) {
@@ -472,12 +492,14 @@ export default {
               module_id: this.instanceName,
               csr: request.csr,
               expose_samba: this.exposeSamba,
+              expose_ssh: this.exposeSsh,
             },
             completed: (join) => {
               this.saveConfiguration({
                 mode: "spoke",
                 hub: this.hub,
                 expose_samba: this.exposeSamba,
+                expose_ssh: this.exposeSsh,
                 join,
               });
             },

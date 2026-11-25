@@ -215,6 +215,8 @@
     "totp_needs_password": "L'autenticatore richiede accessi con password",
     "expose_samba": "Apri il file server alla VPN",
     "expose_samba_tooltip": "Apre le porte del controller di dominio Samba di questo nodo e risolve il suo dominio per i client.",
+    "expose_ssh": "Apri SSH alla VPN",
+    "expose_ssh_tooltip": "Permette a ogni utente VPN di raggiungere SSH di questo nodo, anche dal suo indirizzo privato. Senza, SSH verso un indirizzo instradato nella VPN viene rifiutato. L'indirizzo pubblico non è interessato.",
     "enabled": "Abilitato",
     "disabled": "Disabilitato",
     "save": "Salva",

@@ -24,7 +24,7 @@ flowchart LR
         end
 
         tun["tun device tunrwN<br/>10.8.1.2/23<br/>created by the core"]
-        zone["firewalld zone tunrwN<br/>443, 80, 53, Samba ports<br/>SSH rejected"]
+        zone["firewalld zone tunrwN<br/>443, 80, 53, Samba ports<br/>SSH rejected or open"]
         traefik["Traefik<br/>HTTP routes"]
         apps["web apps of the node"]
         samba["Samba DC of the node<br/>optional"]
@@ -104,7 +104,7 @@ flowchart LR
     client --> pod
     pod -- "link" --> tun1
     tun1 -- "allowed by the zone" --> svc
-    tun1 -. "rejected" .-> ssh1
+    tun1 -. "rejected unless opened" .-> ssh1
     pod -- "link" --> node2
     pod -. "no link" .-> node3
     tun1 -. "no forward" .-> lan
@@ -114,6 +114,8 @@ flowchart LR
 The node does not forward packets from the tun zone. So a client reaches the services of the nodes that joined the hub, and nothing else. The default route of the client stays on its own network: its Internet traffic does not enter the VPN.
 
 Reaching the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it.
+
+SSH of a node is rejected from the VPN by default. A shared Samba DC gets a route to its address, which is often the LAN address of the node. SSH to that address then enters the VPN and fails, while SSH to the public address keeps working. "Open SSH to the VPN", set on each node, accepts SSH from the VPN users. The port is the one of the `ssh` service of the node firewall, 22/tcp if the node cannot tell.
 
 ## Keeping an app for the VPN clients
 

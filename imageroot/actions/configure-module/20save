@@ -24,6 +24,7 @@ if om.mode() == "hub" and mode == "spoke":
 agent.set_env("OVPN_MODE", mode)
 agent.set_env("OVPN_HUB", request["hub"] if mode == "spoke" else "")
 agent.set_env("OVPN_EXPOSE_SAMBA", str(bool(request.get("expose_samba"))))
+agent.set_env("OVPN_EXPOSE_SSH", str(bool(request.get("expose_ssh"))))
 if mode == "spoke":
     if request.get("join"):
         om.save_join(request["join"])

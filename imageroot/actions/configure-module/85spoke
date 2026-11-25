@@ -15,7 +15,8 @@ import ovpn_module as om
 if om.mode() == "hub":
     joined = om.register_spoke(os.environ["MODULE_ID"], os.environ["MODULE_UUID"], os.environ["NODE_ID"],
                                om.spoke_key_and_csr(),
-                               om.is_true(os.environ.get("OVPN_EXPOSE_SAMBA")))
+                               om.is_true(os.environ.get("OVPN_EXPOSE_SAMBA")),
+                               om.is_true(os.environ.get("OVPN_EXPOSE_SSH")))
     om.save_spoke_certs(joined["ca"], joined["cert"])
     # The ccd file of this spoke and its routes come with the registration
     om.apply_runtime(om.write_runtime())

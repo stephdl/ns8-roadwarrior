@@ -64,6 +64,7 @@ SETTINGS_DEFAULTS = {
     "OVPN_USER_DOMAIN": "",
     "OVPN_TOTP_REQUIRED": "False",
     "OVPN_EXPOSE_SAMBA": "False",
+    "OVPN_EXPOSE_SSH": "False",
     "OVPN_MODE": "hub",
     "OVPN_HUB": "",
 }
@@ -269,7 +270,7 @@ def sign_spoke(name, csr):
     return ca, cert
 
 
-def register_spoke(module_id, uuid, node_id, csr, expose_samba):
+def register_spoke(module_id, uuid, node_id, csr, expose_samba, expose_ssh):
     """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
     conf = settings()
     spokes = load_spokes()
@@ -279,7 +280,8 @@ def register_spoke(module_id, uuid, node_id, csr, expose_samba):
         spokes = {k: v for k, v in spokes.items() if k == uuid or v["ip"] != local_ip}
     ip = assign_spoke_ip(spokes, uuid, conf)
     ca, cert = sign_spoke(uuid, csr)
-    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba)}
+    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba),
+                     "expose_ssh": bool(expose_ssh)}
     save_spokes(spokes)
     link = s2s_networks(conf["OVPN_NETWORK"])
     return {
@@ -405,6 +407,28 @@ def firewall_ports(expose_samba):
     if expose_samba:
         ports += [p for p in SAMBA_PORTS if p not in ports]
     return ports
+
+
+def ssh_ports():
+    """Ports of the ssh service of the node firewall, 22/tcp when the node cannot tell."""
+    response = agent.tasks.run(agent_id=f"node/{os.environ['NODE_ID']}", action="get-firewall-status",
+                               extra={"isNotificationHidden": True})
+    if response["exit_code"] == 0:
+        for service in response["output"].get("services", []):
+            if service.get("name") == "ssh" and service.get("ports"):
+                return service["ports"]
+    log(agent.SD_WARNING + f"cannot read the ssh port of the node, using 22/tcp: {response.get('error', '')}")
+    return ["22/tcp"]
+
+
+def zone_rules(expose_ssh):
+    """Rich rules of the tun zone: SSH of the node, open or closed to the VPN users."""
+    target = "accept" if expose_ssh else "reject"
+    rules = []
+    for item in ssh_ports():
+        port, protocol = item.split("/")
+        rules.append(f"rule family=ipv4 source address={users_network()} port port={port} protocol={protocol} {target}")
+    return rules
 
 
 def write_text(path, text):

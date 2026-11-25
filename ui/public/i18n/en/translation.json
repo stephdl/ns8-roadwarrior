@@ -215,6 +215,8 @@
     "totp_needs_password": "The authenticator needs password logins",
     "expose_samba": "Open the file server to the VPN",
     "expose_samba_tooltip": "Opens the ports of the Samba domain controller of this node and resolves its domain for the clients.",
+    "expose_ssh": "Open SSH to the VPN",
+    "expose_ssh_tooltip": "Lets every VPN user reach SSH of this node, also by its private address. Without it, SSH to an address routed in the VPN is refused. The public address is not affected.",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "save": "Save",

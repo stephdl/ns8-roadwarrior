@@ -37,6 +37,7 @@ json.dump([{
     "leader": info["node_id"] == leader_id,
     "ip": info["ip"],
     "expose_samba": bool(info.get("expose_samba")),
+    "expose_ssh": bool(info.get("expose_ssh")),
     "connected": uuid in connected,
     "connected_since": connected.get(uuid, ""),
 } for uuid, info in sorted(spokes.items(), key=lambda item: item[1]["module_id"])], fp=sys.stdout)

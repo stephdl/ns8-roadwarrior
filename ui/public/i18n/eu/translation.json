@@ -215,6 +215,8 @@
     "totp_needs_password": "Autentifikatzaileak pasahitzarekin saioa hastea behar du",
     "expose_samba": "Ireki fitxategi-zerbitzaria VPNrako",
     "expose_samba_tooltip": "Nodo honetako Samba domeinu-kontrolagailuaren atakak irekitzen ditu eta bere domeinua ebazten du bezeroentzat.",
+    "expose_ssh": "Ireki SSH VPNrako",
+    "expose_ssh_tooltip": "VPNeko erabiltzaile orori nodo honetako SSHra iristea ahalbidetzen dio, baita bere helbide pribatutik ere. Hori gabe, VPNan bideratutako helbide baterako SSHa baztertu egiten da. Helbide publikoari ez dio eragiten.",
     "enabled": "Gaituta",
     "disabled": "Desgaituta",
     "save": "Gorde",
