@@ -357,6 +357,27 @@ def save_join(join):
     save_json(SPOKE_JOIN, join)
 
 
+def own_spoke_is_valid(conf=None):
+    """True when the spoke of the hub node holds a certificate of the current link CA, valid for 30 days."""
+    from cryptography import x509
+    conf = conf or settings()
+    entry = load_json(SPOKES, {}).get(os.environ["MODULE_UUID"])
+    if not entry or entry["ip"] != s2s_networks(conf["OVPN_NETWORK"])["local_ip"]:
+        return False
+    try:
+        with open(SPOKE_CERT, "rb") as f:
+            cert = x509.load_pem_x509_certificate(f.read())
+        with open(SPOKE_CA, "rb") as f:
+            ca = x509.load_pem_x509_certificate(f.read())
+        cert.verify_directly_issued_by(ca)
+    except (OSError, ValueError, TypeError, x509.InvalidSignature):
+        return False
+    current_ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER, check=False).stdout
+    if current_ca.strip() != ca.public_bytes(serialization.Encoding.PEM).decode().strip():
+        return False
+    return cert.not_valid_after_utc.timestamp() - time.time() > 30 * 86400
+
+
 def save_spoke_certs(ca, cert):
     os.makedirs(RUNTIME_DIR, exist_ok=True)
     changed = write_if_changed(SPOKE_CA, ca)

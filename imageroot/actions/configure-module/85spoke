@@ -12,7 +12,8 @@ import os
 import subprocess
 import ovpn_module as om
 
-if om.mode() == "hub":
+# Signing again revokes the certificate in use and drops the link of this node: do it only when needed
+if om.mode() == "hub" and not om.own_spoke_is_valid():
     joined = om.register_spoke(os.environ["MODULE_ID"], os.environ["MODULE_UUID"], os.environ["NODE_ID"],
                                om.spoke_key_and_csr())
     om.save_spoke_certs(joined["ca"], joined["cert"])
