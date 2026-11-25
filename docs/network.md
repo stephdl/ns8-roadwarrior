@@ -283,4 +283,4 @@ A packet crosses three OpenVPN processes, the user server, the link server and t
 
 ## Clone and move
 
-A clone or a move copies the PKI, the accounts, the authenticator secrets and the history. The new instance creates its own tun, zone and port on the target node. The profiles keep the old host. They work again once the host name points to the new node, or after a new download if the host was an IP address. While the original instance still runs on the same node, the copy cannot take the same port and network, and it stays stopped until the original is removed.
+A clone or a move copies the PKI, the accounts, the authenticator secrets and the history. The new instance creates its own tun and zone on the target node, and a hub its public port. The profiles keep the old host. They work again once the host name points to the new node, or after a new download if the host was an IP address. While the original instance still runs on the same node, the copy cannot take the same port and network, and it stays stopped until the original is removed.
