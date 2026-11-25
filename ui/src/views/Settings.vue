@@ -221,7 +221,7 @@
               :label="$t('settings.expose_ssh')"
               v-model="exposeSsh"
               :disabled="stillLoading"
-              class="mg-bottom"
+              class="mg-bottom-sm"
             >
               <template #tooltip>
                 {{ $t("settings.expose_ssh_tooltip") }}
@@ -233,6 +233,15 @@
                 $t("settings.enabled")
               }}</template>
             </NsToggle>
+            <p class="bx--form__helper-text mg-bottom maxwidth">
+              {{
+                sshPorts.length
+                  ? $t("settings.ssh_ports_helper", {
+                      ports: sshPorts.join(", "),
+                    })
+                  : $t("settings.ssh_ports_unknown")
+              }}
+            </p>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -297,6 +306,7 @@ export default {
       totpRequired: false,
       exposeSamba: false,
       exposeSsh: false,
+      sshPorts: [],
       sambaAvailable: false,
       ipAllowlist: "",
       hasAccounts: false,
@@ -397,6 +407,7 @@ export default {
       this.sambaAvailable = config.samba_available;
       this.exposeSamba = config.expose_samba && config.samba_available;
       this.exposeSsh = config.expose_ssh;
+      this.sshPorts = config.ssh_ports || [];
       this.ipAllowlist = config.ip_allowlist;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;

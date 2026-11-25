@@ -207,6 +207,8 @@
     "expose_samba_tooltip": "Abre los puertos del controlador de dominio Samba de este nodo y resuelve su dominio para los clientes.",
     "expose_ssh": "Abrir SSH a la VPN",
     "expose_ssh_tooltip": "Permite que cada usuario VPN alcance el SSH de este nodo, también por su dirección privada. Sin ello, el SSH hacia una dirección enrutada en la VPN se rechaza. La dirección pública no se ve afectada.",
+    "ssh_ports_helper": "Puerto SSH detectado al último guardado: {ports}. Guarde de nuevo después de cambiar el puerto de sshd.",
+    "ssh_ports_unknown": "El puerto SSH se detecta al guardar.",
     "enabled": "Activado",
     "disabled": "Desactivado",
     "save": "Guardar",

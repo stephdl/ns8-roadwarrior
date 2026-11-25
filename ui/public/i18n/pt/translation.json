@@ -207,6 +207,8 @@
     "expose_samba_tooltip": "Abre as portas do controlador de domínio Samba deste nó e resolve o seu domínio para os clientes.",
     "expose_ssh": "Abrir o SSH à VPN",
     "expose_ssh_tooltip": "Permite que cada utilizador VPN alcance o SSH deste nó, também pelo seu endereço privado. Sem isso, o SSH para um endereço encaminhado na VPN é recusado. O endereço público não é afetado.",
+    "ssh_ports_helper": "Porta SSH detetada no último guardar: {ports}. Guarde novamente depois de mudar a porta do sshd.",
+    "ssh_ports_unknown": "A porta SSH é detetada ao guardar.",
     "enabled": "Ativado",
     "disabled": "Desativado",
     "save": "Guardar",

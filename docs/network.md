@@ -115,7 +115,7 @@ The node does not forward packets from the tun zone. So a client reaches the ser
 
 Reaching the LAN or Internet through the VPN needs a firewalld policy with forward and masquerade. A rootless module cannot create it.
 
-SSH of a node is rejected from the VPN by default. A shared Samba DC gets a route to its address, which is often the LAN address of the node. SSH to that address then enters the VPN and fails, while SSH to the public address keeps working. "Open SSH to the VPN", set on each node, accepts SSH from the VPN users. The port is the one of the `ssh` service of the node firewall, 22/tcp if the node cannot tell.
+SSH of a node is rejected from the VPN by default. A shared Samba DC gets a route to its address, which is often the LAN address of the node. SSH to that address then enters the VPN and fails, while SSH to the public address keeps working. "Open SSH to the VPN", set on each node, accepts SSH from the VPN users. The module finds the port of sshd among the ports the node firewall opens: it keeps those that answer with an SSH greeting, 22/tcp if none does. A port moved later is applied at the next save of the settings.
 
 ## Keeping an app for the VPN clients
 

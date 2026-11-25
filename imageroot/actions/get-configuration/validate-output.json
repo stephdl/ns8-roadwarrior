@@ -14,6 +14,7 @@
             "totp_required": false,
             "expose_samba": true,
             "expose_ssh": false,
+            "ssh_ports": ["22/tcp"],
             "user_domains": [
                 "example.org"
             ],
@@ -38,6 +39,7 @@
         "totp_required",
         "expose_samba",
         "expose_ssh",
+        "ssh_ports",
         "user_domains",
         "samba_available",
         "server_ip",
@@ -75,6 +77,13 @@
         },
         "expose_ssh": {
             "type": "boolean"
+        },
+        "ssh_ports": {
+            "type": "array",
+            "description": "Ports of sshd found at the last save of the settings",
+            "items": {
+                "type": "string"
+            }
         },
         "user_domains": {
             "type": "array",

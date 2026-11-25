@@ -8,7 +8,7 @@ See [docs/network.md](docs/network.md) for diagrams of the network path, the log
 
 The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach the LAN or Internet through the VPN. They reach the nodes that [joined the hub](docs/network.md#a-hub-and-its-nodes).
 
-The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected, unless `expose_ssh` is on. The SSH port comes from the `ssh` service of the node firewall.
+The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected, unless `expose_ssh` is on. The SSH port is the one where sshd answers, among the ports the node firewall opens.
 
 ## Install
 

@@ -29,7 +29,10 @@ if not tun_exists or os.environ.get("OVPN_TUN_IP") != tun_ip:
     agent.assert_exp(agent.add_tun(tun, tun_ip), "tun creation failed")
     agent.set_env("OVPN_TUN_IP", tun_ip)
 
-rules = om.zone_rules(om.is_true(conf["OVPN_EXPOSE_SSH"]))
+# Nothing tells the module when sshd moves: the settings show the ports found at the last save
+ssh_ports = om.ssh_ports()
+agent.set_env("OVPN_SSH_PORTS", " ".join(ssh_ports))
+rules = om.zone_rules(om.is_true(conf["OVPN_EXPOSE_SSH"]), ssh_ports)
 agent.assert_exp(agent.add_custom_zone(tun, tun, om.firewall_ports(om.is_true(conf["OVPN_EXPOSE_SAMBA"])), rules),
                  "firewall zone configuration failed")
 if om.mode() == "spoke":

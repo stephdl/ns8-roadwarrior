@@ -65,6 +65,7 @@ SETTINGS_DEFAULTS = {
     "OVPN_TOTP_REQUIRED": "False",
     "OVPN_EXPOSE_SAMBA": "False",
     "OVPN_EXPOSE_SSH": "False",
+    "OVPN_SSH_PORTS": "",
     "OVPN_MODE": "hub",
     "OVPN_HUB": "",
 }
@@ -409,23 +410,44 @@ def firewall_ports(expose_samba):
     return ports
 
 
+def is_ssh(port):
+    """True when sshd answers on this port of the node: it greets every client first."""
+    try:
+        with socket.create_connection(("127.0.0.1", int(port)), timeout=1) as sock:
+            return sock.recv(8).startswith(b"SSH-")
+    except (OSError, ValueError):
+        return False
+
+
 def ssh_ports():
-    """Ports of the ssh service of the node firewall, 22/tcp when the node cannot tell."""
+    """Ports where sshd listens, among the ports the node firewall opens. 22/tcp when none answers."""
     response = agent.tasks.run(agent_id=f"node/{os.environ['NODE_ID']}", action="get-firewall-status",
                                extra={"isNotificationHidden": True})
+    candidates = ["22/tcp"]
     if response["exit_code"] == 0:
+        # An admin who moves sshd opens the new port in the ssh service or as a plain port
         for service in response["output"].get("services", []):
-            if service.get("name") == "ssh" and service.get("ports"):
-                return service["ports"]
-    log(agent.SD_WARNING + f"cannot read the ssh port of the node, using 22/tcp: {response.get('error', '')}")
-    return ["22/tcp"]
+            if service.get("name") == "ssh":
+                candidates += service.get("ports", [])
+        candidates += response["output"].get("ports", [])
+    else:
+        log(agent.SD_WARNING + f"cannot read the firewall of the node: {response.get('error', '')}")
+    ports = []
+    for item in dict.fromkeys(candidates):
+        port, _, protocol = item.partition("/")
+        if protocol == "tcp" and port.isdigit() and is_ssh(port):
+            ports.append(item)
+    if not ports:
+        log(agent.SD_WARNING + "sshd does not answer on any open port, using 22/tcp")
+        return ["22/tcp"]
+    return ports
 
 
-def zone_rules(expose_ssh):
+def zone_rules(expose_ssh, ports):
     """Rich rules of the tun zone: SSH of the node, open or closed to the VPN users."""
     target = "accept" if expose_ssh else "reject"
     rules = []
-    for item in ssh_ports():
+    for item in ports:
         port, protocol = item.split("/")
         rules.append(f"rule family=ipv4 source address={users_network()} port port={port} protocol={protocol} {target}")
     return rules

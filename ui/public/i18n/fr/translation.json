@@ -207,6 +207,8 @@
     "expose_samba_tooltip": "Ouvre les ports du contrôleur de domaine Samba de ce nœud et résout son domaine pour les clients.",
     "expose_ssh": "Ouvrir SSH au VPN",
     "expose_ssh_tooltip": "Permet à chaque utilisateur VPN de joindre le SSH de ce nœud, aussi par son adresse privée. Sans cela, le SSH vers une adresse routée dans le VPN est refusé. L'adresse publique n'est pas concernée.",
+    "ssh_ports_helper": "Port SSH détecté au dernier enregistrement : {ports}. Enregistrez à nouveau après avoir changé le port de sshd.",
+    "ssh_ports_unknown": "Le port SSH est détecté à l'enregistrement.",
     "enabled": "Activé",
     "disabled": "Désactivé",
     "save": "Enregistrer",
