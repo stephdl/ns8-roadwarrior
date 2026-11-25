@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A node of this hub saved its settings: push the DC route and realm it now shares, or not.
+
+import json
+import os
+import sys
+import ovpn_module as om
+
+event = json.load(sys.stdin)
+if om.mode() != "hub" or not om.server_running():
+    sys.exit(0)
+if event.get("module_uuid") not in om.load_json(om.SPOKES, {}):
+    sys.exit(0)
+om.apply_runtime(om.write_runtime())

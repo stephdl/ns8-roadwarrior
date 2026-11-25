@@ -6,9 +6,7 @@
     "examples": [
         {
             "module_id": "roadwarrior2",
-            "csr": "-----BEGIN CERTIFICATE REQUEST-----\n...\n-----END CERTIFICATE REQUEST-----\n",
-            "expose_samba": true,
-            "expose_ssh": false
+            "csr": "-----BEGIN CERTIFICATE REQUEST-----\n...\n-----END CERTIFICATE REQUEST-----\n"
         }
     ],
     "type": "object",
@@ -25,14 +23,6 @@
             "type": "string",
             "pattern": "^-----BEGIN CERTIFICATE REQUEST-----",
             "maxLength": 8192
-        },
-        "expose_samba": {
-            "type": "boolean",
-            "description": "Open the samba DC of the node of that instance to the users of the hub"
-        },
-        "expose_ssh": {
-            "type": "boolean",
-            "description": "Open SSH of the node of that instance to the users of the hub"
         }
     }
 }

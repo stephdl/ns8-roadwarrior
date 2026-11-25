@@ -35,7 +35,7 @@ Install one instance per node that runs apps you want to reach through the VPN.
 `host`, `port`, `network` and `auth_mode` are required, except for a node of a hub.
 
 - `mode`: `hub` (default) or `spoke`. See [A hub and its nodes](docs/network.md#a-hub-and-its-nodes).
-- `hub`: with `spoke`, the instance of the hub this node joins. A spoke sends only `mode`, `hub` and `expose_samba`.
+- `hub`: with `spoke`, the instance of the hub this node joins. A spoke sends only `mode`, `hub`, `expose_samba` and `expose_ssh`.
 
 - `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
 - `port`: UDP port, from 1024 to 65535.
@@ -44,13 +44,14 @@ Install one instance per node that runs apps you want to reach through the VPN.
 - `user_domain`: required with `certificate_password`.
 - `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
+- `expose_ssh`: accept SSH from the users. See [Where the packets can go](docs/network.md#where-the-packets-can-go).
 
 Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role).
 
 Every configured instance is a hub unless it joins another one. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
 
     csr=$(api-cli run request-spoke-certificate --agent module/roadwarrior2 | jq .csr)
-    join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr, \"expose_samba\": true}")
+    join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr}")
     api-cli run configure-module --agent module/roadwarrior2 --data "{\"mode\": \"spoke\", \"hub\": \"roadwarrior1\", \"expose_samba\": true, \"join\": $join}"
 
 `list-spokes` on the hub lists the nodes and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.

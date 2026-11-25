@@ -502,8 +502,6 @@ export default {
             data: {
               module_id: this.instanceName,
               csr: request.csr,
-              expose_samba: this.exposeSamba,
-              expose_ssh: this.exposeSsh,
             },
             completed: (join) => {
               this.saveConfiguration({

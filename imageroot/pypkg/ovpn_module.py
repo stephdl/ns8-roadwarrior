@@ -37,7 +37,8 @@ SPOKE_CERT = "ovpn/spoke.crt"
 SPOKE_KEY = "secrets/spoke.key"
 # What the hub gave this node when it joined: {"hub", "hub_uuid", "ip", "rw_network", "ca", "cert"}
 SPOKE_JOIN = "spoke.json"
-# Nodes registered on a hub: {module_uuid: {"module_id", "node_id", "ip", "expose_samba"}}.
+# Nodes registered on a hub: {module_uuid: {"module_id", "node_id", "ip"}}.
+# What a node opens to the users lives in its own environment: the hub reads it there.
 # The uuid is the key: a restore in place changes the module id, never the uuid.
 SPOKES = "spokes.json"
 # Names of the tun devices inside the network namespace of the hub pod
@@ -216,12 +217,17 @@ def roadwarrior_instances(rdb):
 
 
 def current_spokes(rdb):
-    """Registered nodes with their current module id and node: a restore or a move changes them."""
+    """Registered nodes with their current module id and node: a restore or a move changes them.
+
+    What each node opens to the users comes from its environment, the only place it is set.
+    """
     spokes = load_json(SPOKES, {})
     instances = roadwarrior_instances(rdb)
     for uuid, info in spokes.items():
         if uuid in instances:
             info["module_id"], info["node_id"] = instances[uuid]
+        env = rdb.hmget(f"module/{info['module_id']}/environment", "OVPN_EXPOSE_SAMBA", "OVPN_EXPOSE_SSH")
+        info["expose_samba"], info["expose_ssh"] = is_true(env[0]), is_true(env[1])
     return spokes
 
 
@@ -271,7 +277,7 @@ def sign_spoke(name, csr):
     return ca, cert
 
 
-def register_spoke(module_id, uuid, node_id, csr, expose_samba, expose_ssh):
+def register_spoke(module_id, uuid, node_id, csr):
     """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
     conf = settings()
     # Sign before the lock: a restarting link server waits for that lock before it creates the PKI
@@ -282,8 +288,7 @@ def register_spoke(module_id, uuid, node_id, csr, expose_samba, expose_ssh):
         local_ip = s2s_networks(conf["OVPN_NETWORK"])["local_ip"]
         spokes = {k: v for k, v in spokes.items() if k == uuid or v["ip"] != local_ip}
     ip = assign_spoke_ip(spokes, uuid, conf)
-    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba),
-                     "expose_ssh": bool(expose_ssh)}
+    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip}
     save_spokes(spokes)
     link = s2s_networks(conf["OVPN_NETWORK"])
     return {
@@ -548,8 +553,7 @@ def write_server_runtime(rdb, skip_module=""):
         if spoke_id != os.environ["MODULE_UUID"]:
             for host in node_names(rdb, info["node_id"], vpn_host, skip_module):
                 addresses.setdefault(host, info["ip"])
-        expose = is_true(conf["OVPN_EXPOSE_SAMBA"]) if spoke_id == os.environ["MODULE_UUID"] else info.get("expose_samba")
-        samba = samba_on_node(rdb, info["node_id"]) if expose else None
+        samba = samba_on_node(rdb, info["node_id"]) if info["expose_samba"] else None
         if samba:
             dcs_by_spoke[spoke_id] = samba
     dcs = list(dcs_by_spoke.values())

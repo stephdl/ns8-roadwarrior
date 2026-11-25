@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# The hub reads what a node opens to the users from the environment of that node.
+# Tell it to read again: it pushes the route and the realm of a shared DC.
+
+import json
+import os
+import agent
+import ovpn_module as om
+
+if om.mode() == "spoke":
+    rdb = agent.redis_connect(privileged=True)
+    rdb.publish(f"{os.environ['AGENT_ID']}/event/spoke-changed", json.dumps({
+        "module_id": os.environ["MODULE_ID"],
+        "module_uuid": os.environ["MODULE_UUID"],
+        "hub": om.current_hub(rdb),
+    }))
