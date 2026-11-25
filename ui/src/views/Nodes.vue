@@ -72,8 +72,13 @@
             @updatePage="tablePage = $event"
           >
             <template slot="empty-state">
+              <SpokeEmptyState
+                v-if="config.mode === 'spoke'"
+                :hub="config.hub"
+                page="nodes"
+              />
               <NsEmptyState
-                v-if="!config.configured"
+                v-else-if="!config.configured"
                 :title="$t('status.not_configured')"
               >
                 <template #description>
@@ -161,10 +166,12 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 import ModuleTask from "@/mixins/moduleTask";
+import SpokeEmptyState from "@/components/SpokeEmptyState.vue";
 import Restart20 from "@carbon/icons-vue/es/restart/20";
 
 export default {
   name: "Nodes",
+  components: { SpokeEmptyState },
   mixins: [
     TaskService,
     IconService,
@@ -248,7 +255,6 @@ export default {
         action: "get-configuration",
         completed: (config) => {
           this.config = config;
-          this.$store.commit("setMode", config.mode);
           this.loading.getConfiguration = false;
           if (this.isHub) {
             this.listSpokes();

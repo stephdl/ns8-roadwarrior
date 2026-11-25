@@ -268,5 +268,10 @@
     "worker": "worker",
     "remove_node": "Remover",
     "removing_node": "A remover {module} do hub"
+  },
+  "spoke": {
+    "title": "Esta instância é um nó do hub {hub}",
+    "description": "Os seus utilizadores ligam-se ao hub. Faça a gestão lá.",
+    "go_to_hub": "Ir para o hub"
   }
 }

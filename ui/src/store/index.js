@@ -12,8 +12,6 @@ export default new Vuex.Store({
     appName: "",
     instanceName: "",
     instanceLabel: "",
-    // Role of the instance: a spoke has no accounts and no sessions
-    mode: "",
     core: null,
   },
   mutations: {
@@ -28,9 +26,6 @@ export default new Vuex.Store({
     },
     setAppName(state, appName) {
       state.appName = appName;
-    },
-    setMode(state, mode) {
-      state.mode = mode;
     },
   },
   actions: {

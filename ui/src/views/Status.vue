@@ -477,7 +477,6 @@ export default {
         action: "get-configuration",
         completed: (output) => {
           this.config = output;
-          this.$store.commit("setMode", output.mode);
           this.loading.getConfiguration = false;
           if (output.configured) {
             this.getVpnStatus();

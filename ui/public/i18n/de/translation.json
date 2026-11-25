@@ -268,5 +268,10 @@
     "worker": "Worker",
     "remove_node": "Entfernen",
     "removing_node": "{module} wird aus dem Hub entfernt"
+  },
+  "spoke": {
+    "title": "Diese Instanz ist ein Knoten des Hubs {hub}",
+    "description": "Ihre Benutzer verbinden sich mit dem Hub. Verwalten Sie sie dort.",
+    "go_to_hub": "Zum Hub"
   }
 }

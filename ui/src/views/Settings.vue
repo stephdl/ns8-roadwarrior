@@ -400,7 +400,6 @@ export default {
       this.ipAllowlist = config.ip_allowlist;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
-      this.$store.commit("setMode", config.mode);
       this.hubs = config.hubs;
       this.$nextTick(() => {
         this.hub = config.hub;
