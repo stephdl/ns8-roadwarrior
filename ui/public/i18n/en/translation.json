@@ -190,6 +190,7 @@
     "invalid_network": "Invalid network, use the form 10.8.0.0/24",
     "network_not_allowed": "Use a private IPv4 network from /16 to /28",
     "network_overlap": "This network overlaps a network of the node or of the cluster",
+    "link_not_private": "The network next to this one, used to link the nodes, is not private. Use a smaller network",
     "auth_mode": "Authentication",
     "auth_certificate_password": "Certificate and domain password",
     "auth_certificate": "Certificate only",

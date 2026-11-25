@@ -190,6 +190,7 @@
     "invalid_network": "Sare baliogabea, erabili 10.8.0.0/24 formatua",
     "network_not_allowed": "Erabili /16tik /28ra bitarteko IPv4 sare pribatu bat",
     "network_overlap": "Sare honek nodoaren edo clusterraren sare batekin bat egiten du",
+    "link_not_private": "Nodoak lotzen dituen ondoko sarea ez da pribatua. Erabili sare txikiago bat",
     "auth_mode": "Autentifikazioa",
     "auth_certificate_password": "Ziurtagiria eta domeinuko pasahitza",
     "auth_certificate": "Ziurtagiria bakarrik",

@@ -190,6 +190,7 @@
     "invalid_network": "Rede inválida, utilize o formato 10.8.0.0/24",
     "network_not_allowed": "Utilize uma rede IPv4 privada de /16 a /28",
     "network_overlap": "Esta rede sobrepõe-se a uma rede do nó ou do cluster",
+    "link_not_private": "A rede adjacente, que liga os nós, não é privada. Utilize uma rede mais pequena",
     "auth_mode": "Autenticação",
     "auth_certificate_password": "Certificado e palavra-passe do domínio",
     "auth_certificate": "Apenas certificado",

@@ -190,6 +190,7 @@
     "invalid_network": "Ungültiges Netzwerk, verwenden Sie die Form 10.8.0.0/24",
     "network_not_allowed": "Verwenden Sie ein privates IPv4-Netzwerk von /16 bis /28",
     "network_overlap": "Dieses Netzwerk überschneidet sich mit einem Netzwerk des Knotens oder des Clusters",
+    "link_not_private": "Das benachbarte Netzwerk, das die Knoten verbindet, ist nicht privat. Verwenden Sie ein kleineres Netzwerk",
     "auth_mode": "Authentifizierung",
     "auth_certificate_password": "Zertifikat und Domänenpasswort",
     "auth_certificate": "Nur Zertifikat",

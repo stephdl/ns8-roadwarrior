@@ -43,7 +43,11 @@ except ValueError:
 if net.version != 4 or not net.is_private or not 16 <= net.prefixlen <= 28:
     om.fail_validation("network", request["network"], "network_not_allowed")
 # The hub also takes the network next to it for the link with the nodes
-wanted = om.s2s_networks(request["network"])["supernet"]
+link = om.s2s_networks(request["network"])
+if not link["s2s"].is_private:
+    # 192.168.0.0/16 has a public neighbour: 192.169.0.0/16
+    om.fail_validation("network", request["network"], "link_not_private")
+wanted = link["supernet"]
 # The cluster VPN and the networks of the node must stay reachable
 taken = []
 cluster_net = rdb.get("cluster/network")
