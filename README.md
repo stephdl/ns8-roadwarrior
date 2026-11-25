@@ -24,7 +24,14 @@ The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba po
 
 The module pulls a second image, `ghcr.io/stephdl/roadwarrior-server`, that runs OpenVPN and dnsmasq.
 
-Install one instance per node that runs apps you want to reach through the VPN.
+Install one instance per node that runs apps you want to reach through the VPN. Then:
+
+1. Configure one instance as the hub: host, port, network and login mode. The users connect to it.
+2. On each other node, open Settings, choose "Node of a hub" and pick the hub. The node joins it in one save.
+
+Configure the hub first: a node can only join a hub that exists.
+
+Each instance chooses. As a hub, it is a VPN of its own, with its own port, network and accounts. A hub alone serves the apps of its own node. As a node of a hub, it adds its node to that VPN. So a cluster can run one VPN for every node, or separate VPNs: other users, another user domain or another login mode.
 
 Debian 13 does not work for now. With kernel 6.12.117 a rootless container cannot open a tun that has no owner, so OpenVPN fails with `Cannot ioctl TUNSETIFF ...: Operation not permitted`. The bug is NethServer/dev#8334, tracked here in #16. The fix is NethServer/ns8-core#1422: once a core with it is released, the module requires that core and Debian 13 works. Rocky Linux 9 is not affected.
 
