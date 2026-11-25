@@ -38,6 +38,14 @@
         <span>{{ $t("sessions.title") }}</span>
       </cv-side-nav-link>
       <cv-side-nav-link
+        v-if="mode !== 'spoke'"
+        @click="goToAppPage(instanceName, 'nodes')"
+        :class="{ 'current-page': isLinkActive('nodes') }"
+      >
+        <template v-slot:nav-icon><EdgeNode20 /></template>
+        <span>{{ $t("nodes.title") }}</span>
+      </cv-side-nav-link>
+      <cv-side-nav-link
         @click="goToAppPage(instanceName, 'settings')"
         :class="{ 'current-page': isLinkActive('settings') }"
       >
@@ -61,6 +69,7 @@ import Information20 from "@carbon/icons-vue/es/information/20";
 import Activity20 from "@carbon/icons-vue/es/activity/20";
 import UserMultiple20 from "@carbon/icons-vue/es/user--multiple/20";
 import Connect20 from "@carbon/icons-vue/es/connect/20";
+import EdgeNode20 from "@carbon/icons-vue/es/edge-node/20";
 import { mapState } from "vuex";
 import { QueryParamService, UtilService } from "@nethserver/ns8-ui-lib";
 
@@ -72,6 +81,7 @@ export default {
     Activity20,
     UserMultiple20,
     Connect20,
+    EdgeNode20,
   },
   mixins: [QueryParamService, UtilService],
   data() {

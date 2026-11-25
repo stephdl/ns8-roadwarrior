@@ -28,7 +28,8 @@
     "renew-account": "Rinnova un certificato",
     "list-spokes": "Elenca i nodi",
     "request-spoke-certificate": "Richiedi un certificato per unirsi a un hub",
-    "add-spoke": "Unisciti a un hub"
+    "add-spoke": "Unisciti a un hub",
+    "remove-spoke": "Rimuovi un nodo"
   },
   "error": {
     "error": "Errore",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub, porta UDP {port}",
     "spoke_of_hub": "Nodo di questo hub, indirizzo {ip}",
     "users_on_hub": "Gli utenti si connettono all'hub {hub}: gestisci lì i loro account",
-    "hub_nodes": "Nodi dell'hub",
-    "hub_nodes_description": "Gli utenti raggiungono le app di questi nodi. Filtra una route HTTP sulla rete VPN per riservarla a loro.",
-    "instance": "Istanza",
-    "address": "Indirizzo",
-    "link": "Collegamento",
-    "connected": "Connesso",
-    "disconnected": "Disconnesso",
-    "remove_node": "Rimuovi",
-    "removing_node": "Rimozione di {module} dall'hub",
-    "leader": "leader",
-    "worker": "worker",
     "vpn_address": "Indirizzo del nodo nella VPN: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Scegli l'hub a cui si unisce questo nodo",
     "no_hub_title": "Nessun hub nel cluster",
     "no_hub_description": "Imposta prima il ruolo Hub sull'istanza roadwarrior di un altro nodo.",
-    "hub_has_spokes": "Altri nodi si sono uniti a questo hub. Rimuovili prima dalla pagina Stato",
+    "hub_has_spokes": "Altri nodi si sono uniti a questo hub. Rimuovili prima dalla pagina Nodi",
     "accounts_exist": "Questa istanza ha account VPN. Rimuovili prima",
     "hub_not_found": "Questo hub non esiste più",
     "server_not_running": "L'hub {hub} non è in esecuzione. Avvialo prima",
@@ -255,5 +245,28 @@
     "column_since": "Connesso dal",
     "column_traffic": "Ricevuti / inviati",
     "disconnect": "Disconnetti"
+  },
+  "nodes": {
+    "title": "Nodi",
+    "description": "Gli utenti raggiungono le app di questi nodi. Filtra una route HTTP sulla rete VPN per riservarla a loro.",
+    "refresh": "Aggiorna",
+    "search": "Cerca nodi",
+    "no_nodes": "Nessun nodo",
+    "no_nodes_description": "Configura l'istanza di un altro nodo come nodo di questo hub.",
+    "not_configured_description": "Configura l'hub prima di aggiungere nodi.",
+    "column_node": "Nodo",
+    "column_instance": "Istanza",
+    "column_address": "Indirizzo",
+    "column_samba": "File server",
+    "column_ssh": "SSH",
+    "column_link": "Collegamento",
+    "open": "Aperto",
+    "closed": "Chiuso",
+    "connected": "Connesso",
+    "disconnected": "Disconnesso",
+    "leader": "leader",
+    "worker": "worker",
+    "remove_node": "Rimuovi",
+    "removing_node": "Rimozione di {module} dall'hub"
   }
 }

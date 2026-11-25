@@ -28,7 +28,8 @@
     "renew-account": "Berritu ziurtagiri bat",
     "list-spokes": "Zerrendatu nodoak",
     "request-spoke-certificate": "Eskatu ziurtagiri bat hub batera batzeko",
-    "add-spoke": "Batu hub batera"
+    "add-spoke": "Batu hub batera",
+    "remove-spoke": "Kendu nodo bat"
   },
   "error": {
     "error": "Errorea",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub-a, {port} UDP ataka",
     "spoke_of_hub": "Hub honetako nodoa, {ip} helbidea",
     "users_on_hub": "Erabiltzaileak {hub} hubera konektatzen dira: kudeatu haien kontuak han",
-    "hub_nodes": "Hub-eko nodoak",
-    "hub_nodes_description": "Erabiltzaileek nodo hauetako aplikazioak erabil ditzakete. Iragazi HTTP bide bat VPN sarean haientzat gordetzeko.",
-    "instance": "Instantzia",
-    "address": "Helbidea",
-    "link": "Lotura",
-    "connected": "Konektatuta",
-    "disconnected": "Deskonektatuta",
-    "remove_node": "Kendu",
-    "removing_node": "{module} hub-etik kentzen",
-    "leader": "liderra",
-    "worker": "worker",
     "vpn_address": "Nodoaren helbidea VPNan: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Aukeratu nodo hau batzen den hub-a",
     "no_hub_title": "Ez dago hub-ik klusterrean",
     "no_hub_description": "Ezarri lehenik Hub rola beste nodo bateko roadwarrior instantzian.",
-    "hub_has_spokes": "Beste nodo batzuk hub honetara batu dira. Kendu itzazu lehenik Egoera orritik",
+    "hub_has_spokes": "Beste nodo batzuk hub honetara batu dira. Kendu itzazu lehenik Nodoak orritik",
     "accounts_exist": "Instantzia honek VPN kontuak ditu. Kendu itzazu lehenik",
     "hub_not_found": "Hub hau ez da existitzen jada",
     "server_not_running": "{hub} hub-a ez dago martxan. Abiarazi lehenik",
@@ -255,5 +245,28 @@
     "column_since": "Konektatuta noiztik",
     "column_traffic": "Jasota / bidalita",
     "disconnect": "Deskonektatu"
+  },
+  "nodes": {
+    "title": "Nodoak",
+    "description": "Erabiltzaileak nodo hauetako aplikazioetara iristen dira. Iragazi HTTP bide bat VPN sarean haientzat gordetzeko.",
+    "refresh": "Freskatu",
+    "search": "Bilatu nodoak",
+    "no_nodes": "Ez dago nodorik",
+    "no_nodes_description": "Konfiguratu beste nodo bateko instantzia hub honen nodo gisa.",
+    "not_configured_description": "Konfiguratu hub-a nodoak gehitu aurretik.",
+    "column_node": "Nodoa",
+    "column_instance": "Instantzia",
+    "column_address": "Helbidea",
+    "column_samba": "Fitxategi-zerbitzaria",
+    "column_ssh": "SSH",
+    "column_link": "Lotura",
+    "open": "Irekita",
+    "closed": "Itxita",
+    "connected": "Konektatuta",
+    "disconnected": "Deskonektatuta",
+    "leader": "liderra",
+    "worker": "worker",
+    "remove_node": "Kendu",
+    "removing_node": "{module} hub-etik kentzen"
   }
 }

@@ -28,7 +28,8 @@
     "renew-account": "Renovar un certificado",
     "list-spokes": "Listar nodos",
     "request-spoke-certificate": "Solicitar un certificado para unirse a un hub",
-    "add-spoke": "Unirse a un hub"
+    "add-spoke": "Unirse a un hub",
+    "remove-spoke": "Quitar un nodo"
   },
   "error": {
     "error": "Error",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub, puerto UDP {port}",
     "spoke_of_hub": "Nodo de este hub, dirección {ip}",
     "users_on_hub": "Los usuarios se conectan al hub {hub}: gestiona sus cuentas allí",
-    "hub_nodes": "Nodos del hub",
-    "hub_nodes_description": "Los usuarios acceden a las apps de estos nodos. Filtre una ruta HTTP en la red VPN para reservarla para ellos.",
-    "instance": "Instancia",
-    "address": "Dirección",
-    "link": "Enlace",
-    "connected": "Conectado",
-    "disconnected": "Desconectado",
-    "remove_node": "Quitar",
-    "removing_node": "Quitando {module} del hub",
-    "leader": "líder",
-    "worker": "worker",
     "vpn_address": "Dirección del nodo en la VPN: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Elija el hub al que se une este nodo",
     "no_hub_title": "No hay ningún hub en el clúster",
     "no_hub_description": "Asigne primero el rol Hub a la instancia roadwarrior de otro nodo.",
-    "hub_has_spokes": "Otros nodos se unieron a este hub. Quítelos primero desde la página Estado",
+    "hub_has_spokes": "Otros nodos se unieron a este hub. Quítelos primero desde la página Nodos",
     "accounts_exist": "Esta instancia tiene cuentas VPN. Elimínelas primero",
     "hub_not_found": "Este hub ya no existe",
     "server_not_running": "El hub {hub} no está en ejecución. Inícielo primero",
@@ -255,5 +245,28 @@
     "column_since": "Conectado desde",
     "column_traffic": "Recibido / enviado",
     "disconnect": "Desconectar"
+  },
+  "nodes": {
+    "title": "Nodos",
+    "description": "Los usuarios alcanzan las aplicaciones de estos nodos. Filtre una ruta HTTP en la red VPN para reservarla para ellos.",
+    "refresh": "Actualizar",
+    "search": "Buscar nodos",
+    "no_nodes": "No hay nodos",
+    "no_nodes_description": "Configure la instancia de otro nodo como nodo de este hub.",
+    "not_configured_description": "Configure el hub antes de añadir nodos.",
+    "column_node": "Nodo",
+    "column_instance": "Instancia",
+    "column_address": "Dirección",
+    "column_samba": "Servidor de archivos",
+    "column_ssh": "SSH",
+    "column_link": "Enlace",
+    "open": "Abierto",
+    "closed": "Cerrado",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "leader": "líder",
+    "worker": "worker",
+    "remove_node": "Quitar",
+    "removing_node": "Quitando {module} del hub"
   }
 }

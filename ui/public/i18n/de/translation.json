@@ -28,7 +28,8 @@
     "renew-account": "Zertifikat erneuern",
     "list-spokes": "Knoten auflisten",
     "request-spoke-certificate": "Zertifikat für den Beitritt zu einem Hub anfordern",
-    "add-spoke": "Einem Hub beitreten"
+    "add-spoke": "Einem Hub beitreten",
+    "remove-spoke": "Einen Knoten entfernen"
   },
   "error": {
     "error": "Fehler",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub, UDP-Port {port}",
     "spoke_of_hub": "Knoten dieses Hubs, Adresse {ip}",
     "users_on_hub": "Die Benutzer verbinden sich mit dem Hub {hub}: verwalte ihre Konten dort",
-    "hub_nodes": "Knoten des Hubs",
-    "hub_nodes_description": "Die Benutzer erreichen die Apps dieser Knoten. Filtern Sie eine HTTP-Route auf das VPN-Netz, um sie ihnen vorzubehalten.",
-    "instance": "Instanz",
-    "address": "Adresse",
-    "link": "Verbindung",
-    "connected": "Verbunden",
-    "disconnected": "Getrennt",
-    "remove_node": "Entfernen",
-    "removing_node": "{module} wird aus dem Hub entfernt",
-    "leader": "Leader",
-    "worker": "Worker",
     "vpn_address": "Adresse des Knotens im VPN: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Wählen Sie den Hub, dem dieser Knoten beitritt",
     "no_hub_title": "Kein Hub im Cluster",
     "no_hub_description": "Setzen Sie zuerst die Rolle Hub auf der roadwarrior-Instanz eines anderen Knotens.",
-    "hub_has_spokes": "Andere Knoten sind diesem Hub beigetreten. Entfernen Sie sie zuerst auf der Statusseite",
+    "hub_has_spokes": "Andere Knoten sind diesem Hub beigetreten. Entfernen Sie sie zuerst auf der Seite Knoten",
     "accounts_exist": "Diese Instanz hat VPN-Konten. Entfernen Sie sie zuerst",
     "hub_not_found": "Dieser Hub existiert nicht mehr",
     "server_not_running": "Der Hub {hub} läuft nicht. Starten Sie ihn zuerst",
@@ -255,5 +245,28 @@
     "column_since": "Verbunden seit",
     "column_traffic": "Empfangen / gesendet",
     "disconnect": "Trennen"
+  },
+  "nodes": {
+    "title": "Knoten",
+    "description": "Die Benutzer erreichen die Apps dieser Knoten. Filtern Sie eine HTTP-Route auf das VPN-Netz, um sie ihnen vorzubehalten.",
+    "refresh": "Aktualisieren",
+    "search": "Knoten suchen",
+    "no_nodes": "Keine Knoten",
+    "no_nodes_description": "Konfigurieren Sie die Instanz eines anderen Knotens als Knoten dieses Hubs.",
+    "not_configured_description": "Konfigurieren Sie den Hub, bevor Sie Knoten hinzufügen.",
+    "column_node": "Knoten",
+    "column_instance": "Instanz",
+    "column_address": "Adresse",
+    "column_samba": "Dateiserver",
+    "column_ssh": "SSH",
+    "column_link": "Verbindung",
+    "open": "Offen",
+    "closed": "Geschlossen",
+    "connected": "Verbunden",
+    "disconnected": "Getrennt",
+    "leader": "Leader",
+    "worker": "Worker",
+    "remove_node": "Entfernen",
+    "removing_node": "{module} wird aus dem Hub entfernt"
   }
 }

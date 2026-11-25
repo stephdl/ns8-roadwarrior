@@ -28,7 +28,8 @@
     "renew-account": "Renovar um certificado",
     "list-spokes": "Listar nós",
     "request-spoke-certificate": "Pedir um certificado para aderir a um hub",
-    "add-spoke": "Aderir a um hub"
+    "add-spoke": "Aderir a um hub",
+    "remove-spoke": "Remover um nó"
   },
   "error": {
     "error": "Erro",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub, porta UDP {port}",
     "spoke_of_hub": "Nó deste hub, endereço {ip}",
     "users_on_hub": "Os utilizadores ligam-se ao hub {hub}: gira as suas contas lá",
-    "hub_nodes": "Nós do hub",
-    "hub_nodes_description": "Os utilizadores acedem às apps destes nós. Filtre uma rota HTTP na rede VPN para a reservar para eles.",
-    "instance": "Instância",
-    "address": "Endereço",
-    "link": "Ligação",
-    "connected": "Ligado",
-    "disconnected": "Desligado",
-    "remove_node": "Remover",
-    "removing_node": "A remover {module} do hub",
-    "leader": "líder",
-    "worker": "worker",
     "vpn_address": "Endereço do nó na VPN: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Escolha o hub a que este nó adere",
     "no_hub_title": "Nenhum hub no cluster",
     "no_hub_description": "Defina primeiro a função Hub na instância roadwarrior de outro nó.",
-    "hub_has_spokes": "Outros nós aderiram a este hub. Remova-os primeiro na página Estado",
+    "hub_has_spokes": "Outros nós aderiram a este hub. Remova-os primeiro na página Nós",
     "accounts_exist": "Esta instância tem contas VPN. Remova-as primeiro",
     "hub_not_found": "Este hub já não existe",
     "server_not_running": "O hub {hub} não está em execução. Inicie-o primeiro",
@@ -255,5 +245,28 @@
     "column_since": "Ligado desde",
     "column_traffic": "Recebido / enviado",
     "disconnect": "Desligar"
+  },
+  "nodes": {
+    "title": "Nós",
+    "description": "Os utilizadores alcançam as aplicações destes nós. Filtre uma rota HTTP na rede VPN para a reservar para eles.",
+    "refresh": "Atualizar",
+    "search": "Pesquisar nós",
+    "no_nodes": "Nenhum nó",
+    "no_nodes_description": "Configure a instância de outro nó como nó deste hub.",
+    "not_configured_description": "Configure o hub antes de adicionar nós.",
+    "column_node": "Nó",
+    "column_instance": "Instância",
+    "column_address": "Endereço",
+    "column_samba": "Servidor de ficheiros",
+    "column_ssh": "SSH",
+    "column_link": "Ligação",
+    "open": "Aberto",
+    "closed": "Fechado",
+    "connected": "Ligado",
+    "disconnected": "Desligado",
+    "leader": "líder",
+    "worker": "worker",
+    "remove_node": "Remover",
+    "removing_node": "A remover {module} do hub"
   }
 }

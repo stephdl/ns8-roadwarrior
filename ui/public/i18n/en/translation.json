@@ -28,7 +28,8 @@
     "renew-account": "Renew a certificate",
     "list-spokes": "List nodes",
     "request-spoke-certificate": "Request a certificate to join a hub",
-    "add-spoke": "Join a hub"
+    "add-spoke": "Join a hub",
+    "remove-spoke": "Remove a node"
   },
   "error": {
     "error": "Error",
@@ -72,17 +73,6 @@
     "hub_server_port": "Hub, UDP port {port}",
     "spoke_of_hub": "Node of this hub, address {ip}",
     "users_on_hub": "Users connect to the hub {hub}: manage their accounts there",
-    "hub_nodes": "Nodes of the hub",
-    "hub_nodes_description": "The users reach the apps of these nodes. Filter an HTTP route on the VPN network to keep it for them.",
-    "instance": "Instance",
-    "address": "Address",
-    "link": "Link",
-    "connected": "Connected",
-    "disconnected": "Disconnected",
-    "remove_node": "Remove",
-    "removing_node": "Removing {module} from the hub",
-    "leader": "leader",
-    "worker": "worker",
     "vpn_address": "Node address in the VPN: {ip}"
   },
   "accounts": {
@@ -234,7 +224,7 @@
     "choose_hub": "Choose the hub this node joins",
     "no_hub_title": "No hub in the cluster",
     "no_hub_description": "Set the role Hub on the roadwarrior instance of another node first.",
-    "hub_has_spokes": "Other nodes joined this hub. Remove them from the Status page first",
+    "hub_has_spokes": "Other nodes joined this hub. Remove them from the Nodes page first",
     "accounts_exist": "This instance has VPN accounts. Remove them first",
     "hub_not_found": "This hub does not exist anymore",
     "server_not_running": "The hub {hub} is not running. Start it first",
@@ -255,5 +245,28 @@
     "column_since": "Connected since",
     "column_traffic": "Received / sent",
     "disconnect": "Disconnect"
+  },
+  "nodes": {
+    "title": "Nodes",
+    "description": "The users reach the apps of these nodes. Filter an HTTP route on the VPN network to keep it for them.",
+    "refresh": "Refresh",
+    "search": "Search nodes",
+    "no_nodes": "No nodes",
+    "no_nodes_description": "Configure the instance of another node as a node of this hub.",
+    "not_configured_description": "Configure the hub before adding nodes.",
+    "column_node": "Node",
+    "column_instance": "Instance",
+    "column_address": "Address",
+    "column_samba": "File server",
+    "column_ssh": "SSH",
+    "column_link": "Link",
+    "open": "Open",
+    "closed": "Closed",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "leader": "leader",
+    "worker": "worker",
+    "remove_node": "Remove",
+    "removing_node": "Removing {module} from the hub"
   }
 }
