@@ -23,7 +23,8 @@ import ovpn_module as om
 conf = om.settings()
 if om.mode() == "spoke":
     data = {"mode": "spoke", "hub": om.current_hub(agent.redis_connect(use_replica=True)),
-            "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"])}
+            "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+            "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"])}
 elif not conf["OVPN_HOST"]:
     sys.exit(0)
 else:
@@ -36,6 +37,7 @@ else:
         "user_domain": conf["OVPN_USER_DOMAIN"],
         "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
         "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+        "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
     }
 # Errors an original instance on the same node causes, and that its removal clears
 CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
