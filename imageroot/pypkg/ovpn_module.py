@@ -308,12 +308,25 @@ def unregister_spoke(rdb, module_id):
     uuid = next((u for u, info in current.items() if info["module_id"] == module_id), None)
     if uuid is None:
         return False
+    forget_spoke(spokes, uuid)
+    return True
+
+
+def forget_spokes_gone(rdb):
+    """Remove the nodes whose instance left the cluster. A move or a restore keeps the uuid in the copy."""
+    spokes = load_spokes()
+    gone = set(spokes) - set(roadwarrior_instances(rdb)) - {os.environ["MODULE_UUID"]}
+    for uuid in gone:
+        forget_spoke(spokes, uuid)
+    return bool(gone)
+
+
+def forget_spoke(spokes, uuid):
     spokes.pop(uuid)
     podman_exec("ovpn-pki", "s2s-revoke", uuid, container=S2S_CONTAINER, check=False)
     save_spokes(spokes)
     # The link server reads the new CRL at the next connection: end the current one now
     podman_exec("ovpn-mgmt", "s2s-kill", uuid, container=S2S_CONTAINER, check=False)
-    return True
 
 
 def spoke_key_and_csr():

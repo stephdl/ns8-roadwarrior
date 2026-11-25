@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import agent
 import ovpn_module as om
 
 event = json.load(sys.stdin)
@@ -23,6 +24,9 @@ if event.get("module") == os.environ["MODULE_ID"]:
     sys.exit(0)
 
 if om.mode() == "hub" and om.server_running():
+    # A node removed for good leaves its address and certificate behind. Ask the leader: a
+    # late replica could miss the copy that a move or a restore keeps under the same uuid
+    om.forget_spokes_gone(agent.redis_connect())
     # A move, a clone or a restore with replace ends here: the names of the removed module may now
     # answer on another node. Traefik may still list its routes, so leave them out.
     om.apply_runtime(om.write_runtime(skip_module=event.get("module", "")))
