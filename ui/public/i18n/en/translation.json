@@ -234,6 +234,7 @@
     "not_a_hub": "{hub} is not a hub anymore",
     "not_joined": "This node never joined this hub. Save again to join it",
     "module_not_found": "The hub does not know this instance",
+    "csr_mismatch": "The request of this node does not carry its own name. Save again",
     "hub_on_leader": "leader node {node}",
     "hub_on_worker": "worker node {node}"
   },

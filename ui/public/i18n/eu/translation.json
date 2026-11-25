@@ -234,6 +234,7 @@
     "not_a_hub": "{hub} ez da hub bat jada",
     "not_joined": "Nodo hau ez da inoiz hub honetara batu. Gorde berriro batzeko",
     "module_not_found": "Hub-ak ez du instantzia hau ezagutzen",
+    "csr_mismatch": "Nodo honen eskaerak ez du bere izena. Gorde berriro",
     "hub_on_leader": "{node} nodo liderra",
     "hub_on_worker": "{node} worker nodoa"
   },

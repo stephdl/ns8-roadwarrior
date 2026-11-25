@@ -350,6 +350,21 @@ def spoke_key_and_csr():
     return csr.public_bytes(serialization.Encoding.PEM).decode()
 
 
+def csr_name(csr):
+    """Common name of a node CSR, or None when the request is unreadable or not signed by its key."""
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    try:
+        req = x509.load_pem_x509_csr(csr.encode())
+    except ValueError:
+        return None
+    names = req.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    if len(names) != 1 or not req.is_signature_valid:
+        return None
+    return names[0].value
+
+
 def load_join():
     return load_json(SPOKE_JOIN, {})
 

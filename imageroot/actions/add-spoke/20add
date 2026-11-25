@@ -23,6 +23,9 @@ node_id = rdb.hget("cluster/module_node", module_id)
 uuid = rdb.hget(f"module/{module_id}/environment", "MODULE_UUID")
 if module_id == os.environ["MODULE_ID"] or not node_id or not uuid:
     om.fail_validation("module_id", module_id, "module_not_found")
+# easyrsa keeps the subject of the request: a CSR named after another node would take its address and routes
+if om.csr_name(request["csr"]) != uuid:
+    om.fail_validation("csr", "", "csr_mismatch")
 if not om.server_running():
     om.fail_validation("module_id", module_id, "server_not_running")
 

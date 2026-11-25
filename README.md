@@ -56,6 +56,8 @@ Every configured instance is a hub unless it joins another one. The UI joins the
     join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr}")
     api-cli run configure-module --agent module/roadwarrior2 --data "{\"mode\": \"spoke\", \"hub\": \"roadwarrior1\", \"expose_samba\": true, \"join\": $join}"
 
+`add-spoke` signs only a request made by that instance: a request named after another one fails with `csr_mismatch`.
+
 `list-spokes` on the hub lists the nodes, what each one shares, read from the settings of the node, and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
 
 While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. The errors are `host_locked`, `port_locked`, `network_locked` and `auth_mode_locked`. Host, port and login prompt are written in every profile already sent, and the network in the HTTP route allowlists. Remove all the accounts to change them.

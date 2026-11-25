@@ -234,6 +234,7 @@
     "not_a_hub": "{hub} já não é um hub",
     "not_joined": "Este nó nunca aderiu a este hub. Guarde de novo para aderir",
     "module_not_found": "O hub não conhece esta instância",
+    "csr_mismatch": "O pedido deste nó não tem o seu próprio nome. Guarde novamente",
     "hub_on_leader": "nó líder {node}",
     "hub_on_worker": "nó worker {node}"
   },
