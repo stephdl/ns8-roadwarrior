@@ -36,7 +36,8 @@ json.dump({
     "ip_allowlist": om.users_network() or net.with_prefixlen,
     "has_accounts": bool(om.load_accounts()),
     "mode": om.mode(),
-    "hub": conf["OVPN_HUB"],
+    # A restore of the hub changes its module id: find it again by its uuid
+    "hub": om.current_hub(rdb) if om.mode() == "spoke" else "",
     "hubs": om.list_hubs(rdb),
     # Address of this node on the link with the hub
     "spoke_ip": om.host_tun_ip(conf) if om.is_configured() else "",
