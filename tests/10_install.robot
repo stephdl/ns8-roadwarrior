@@ -53,12 +53,14 @@ Check if the hub refuses an unknown node
     Should Be Equal    ${error}    module_not_found
 
 Check if the hub signs only a request named after the node
-    # Any module of the node has a uuid: the request names another one
+    # A single node has no other roadwarrior instance: give the hub a fake one to sign for
+    Execute Command    redis-cli hset cluster/module_node roadwarrior999 1 && redis-cli hset module/roadwarrior999/environment MODULE_UUID 00000000-0000-0000-0000-000000000999
     ${csr} =    Execute Command    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes -keyout /dev/null -subj /CN=not-the-uuid 2>/dev/null | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
-    ${error} =    Validation error of    add-spoke    {"module_id": "traefik1", "csr": ${csr}}
+    ${error} =    Validation error of    add-spoke    {"module_id": "roadwarrior999", "csr": ${csr}}
     Should Be Equal    ${error}    csr_mismatch
     ${spokes} =    Run module action    list-spokes
-    Should Not Contain    ${spokes}    traefik1
+    Should Not Contain    ${spokes}    roadwarrior999
+    [Teardown]    Execute Command    redis-cli hdel cluster/module_node roadwarrior999 && redis-cli del module/roadwarrior999/environment
 
 Check if the SSH port of the node is found
     ${output} =    Run module action    get-configuration
