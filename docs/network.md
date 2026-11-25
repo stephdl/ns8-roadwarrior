@@ -269,7 +269,7 @@ No instance has rights on another one, and nothing is stored in Redis: a node on
 2. `add-spoke` on the hub signs it with the CA of the link, which is apart from the CA of the users, and returns the address of the node.
 3. `configure-module` on the node takes that answer as `join`.
 
-The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again.
+The node keeps the answer in its backup, so a restore or a new save needs no new join. The hub and its nodes know each other by module uuid: a restore in place changes the module id, never the uuid. A spoke follows its hub when it moves: its client exits when the hub stops answering, and reads the cluster VPN address and port of the hub at its next start. A hub cloned to a new uuid needs the nodes to join again. A node cloned to a new uuid drops the join it copied, so it does not take the link of its original: join it again from its settings.
 
 `remove-spoke` on the hub revokes the certificate of a node and ends its link through the management socket of the link server. The link server reads the new revocation list at the next connection. The node keeps trying until its role changes.
 

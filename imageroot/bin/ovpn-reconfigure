@@ -21,6 +21,9 @@ import agent
 import ovpn_module as om
 
 conf = om.settings()
+if om.mode() == "spoke" and not om.join_is_mine():
+    # Two nodes with one certificate would kick each other off the link: the clone joins on its own
+    om.forget_join()
 if om.mode() == "spoke":
     data = {"mode": "spoke", "hub": om.current_hub(agent.redis_connect(use_replica=True)),
             "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),

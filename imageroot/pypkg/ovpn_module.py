@@ -371,6 +371,29 @@ def load_join():
     return load_json(SPOKE_JOIN, {})
 
 
+def join_is_mine():
+    """False when the saved join names another instance: a clone copies the join of its original."""
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    cert = load_join().get("cert")
+    if not cert:
+        return True
+    try:
+        names = x509.load_pem_x509_certificate(cert.encode()).subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    except ValueError:
+        return False
+    return [n.value for n in names] == [os.environ["MODULE_UUID"]]
+
+
+def forget_join():
+    for path in (SPOKE_JOIN, SPOKE_KEY, SPOKE_CERT, SPOKE_CA):
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
 def save_join(join):
     """Keep what the hub gave. It is in the backup: a restored node joins again without the hub."""
     save_json(SPOKE_JOIN, join)
