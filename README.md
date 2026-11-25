@@ -2,7 +2,15 @@
 
 OpenVPN road warrior server for NethServer 8.
 
-Remote users connect to one node, the hub. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. Other nodes join the hub to be reached the same way. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
+Remote users reach the cluster from anywhere through OpenVPN:
+
+- the web apps of every node, through Traefik
+- the Samba shares of a node, when that node opens its file server to the VPN
+- SSH of a node, when that node allows it
+
+The VPN clients get their own private network. To keep a web app for them only, paste that network, for example `10.8.0.0/24`, in "Allow access from" of the app HTTP route. Traefik then refuses the same app from the Internet.
+
+The users connect to one node, the hub. The other nodes join the hub to be reached the same way.
 
 See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
 
