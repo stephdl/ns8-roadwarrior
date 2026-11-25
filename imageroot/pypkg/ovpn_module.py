@@ -274,13 +274,14 @@ def sign_spoke(name, csr):
 def register_spoke(module_id, uuid, node_id, csr, expose_samba, expose_ssh):
     """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
     conf = settings()
+    # Sign before the lock: a restarting link server waits for that lock before it creates the PKI
+    ca, cert = sign_spoke(uuid, csr)
     spokes = load_spokes()
     if uuid == os.environ["MODULE_UUID"]:
         # A cloned hub has a new uuid: its own spoke under the old one goes
         local_ip = s2s_networks(conf["OVPN_NETWORK"])["local_ip"]
         spokes = {k: v for k, v in spokes.items() if k == uuid or v["ip"] != local_ip}
     ip = assign_spoke_ip(spokes, uuid, conf)
-    ca, cert = sign_spoke(uuid, csr)
     spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip, "expose_samba": bool(expose_samba),
                      "expose_ssh": bool(expose_ssh)}
     save_spokes(spokes)
