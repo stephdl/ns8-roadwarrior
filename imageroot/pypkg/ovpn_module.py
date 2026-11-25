@@ -389,8 +389,16 @@ def own_spoke_is_valid(conf=None):
         cert.verify_directly_issued_by(ca)
     except (OSError, ValueError, TypeError, InvalidSignature):
         return False
-    current_ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER, check=False).stdout
-    if current_ca.strip() != ca.public_bytes(serialization.Encoding.PEM).decode().strip():
+    for _ in range(15):
+        current_ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER, check=False).stdout.strip()
+        if current_ca:
+            break
+        time.sleep(2)
+    else:
+        # The link server is still starting: a new certificate would only drop a working link
+        print("cannot read the link CA, keeping the certificate of this node", file=sys.stderr)
+        return True
+    if current_ca != ca.public_bytes(serialization.Encoding.PEM).decode().strip():
         return False
     return cert.not_valid_after_utc.timestamp() - time.time() > 30 * 86400
 
