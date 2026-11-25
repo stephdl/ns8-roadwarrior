@@ -52,6 +52,18 @@ Check if the hub refuses an unknown node
     ${error} =    Validation error of    add-spoke    {"module_id": "roadwarrior999", "csr": "-----BEGIN CERTIFICATE REQUEST-----"}
     Should Be Equal    ${error}    module_not_found
 
+Check if the hub signs only a request named after the node
+    # Any module of the node has a uuid: the request names another one
+    ${csr} =    Execute Command    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes -keyout /dev/null -subj /CN=not-the-uuid 2>/dev/null | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
+    ${error} =    Validation error of    add-spoke    {"module_id": "traefik1", "csr": ${csr}}
+    Should Be Equal    ${error}    csr_mismatch
+    ${spokes} =    Run module action    list-spokes
+    Should Not Contain    ${spokes}    traefik1
+
+Check if the SSH port of the node is found
+    ${output} =    Run module action    get-configuration
+    Should Contain    ${output}    "ssh_ports": ["22/tcp"]
+
 *** Keywords ***
 Spoke is connected
     ${spokes} =    Run module action    list-spokes

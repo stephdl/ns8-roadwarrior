@@ -37,8 +37,8 @@ Validation error of
     RETURN    ${error}
 
 Configuration
-    [Arguments]    ${auth_mode}    ${user_domain}=
-    RETURN    {"host": "${node_ip}", "port": 11950, "network": "10.66.0.0/24", "auth_mode": "${auth_mode}", "user_domain": "${user_domain}", "totp_required": false, "expose_samba": false}
+    [Arguments]    ${auth_mode}    ${user_domain}=    ${expose_ssh}=false
+    RETURN    {"host": "${node_ip}", "port": 11950, "network": "10.66.0.0/24", "auth_mode": "${auth_mode}", "user_domain": "${user_domain}", "totp_required": false, "expose_samba": false, "expose_ssh": ${expose_ssh}}
 
 Save profile
     [Arguments]    ${name}
@@ -88,3 +88,9 @@ Connect client
     ${output}  ${rc} =    Execute Command    bash /root/vpn-client.sh ${client_image} /root/rw-${profile}.ovpn ${args} 2>&1
     ...    return_rc=True
     RETURN    ${output}
+
+Link of the hub node since
+    ${spokes} =    Run module action    list-spokes
+    ${spokes} =    Evaluate    json.loads($spokes)    modules=json
+    Should Be True    ${spokes}[0][connected]
+    RETURN    ${spokes}[0][connected_since]
