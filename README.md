@@ -69,6 +69,8 @@ Names match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, and `server` is reserved. In pa
 
 `remove-account` revokes the certificate and closes the session.
 
+`download-client-config` and `enroll-totp` encrypt their output for the browser that sends a `public_key`, as the UI does. Without `public_key`, the output is in plain text. Use that form only to troubleshoot: the core keeps task output in Redis for some hours, and Redis replicates it to every node, so the client key or the TOTP secret stays readable there. Prefer the UI to hand a profile or a secret to a user.
+
 `kill-session` closes the open session and tells the client to stop instead of reconnecting. The session token of the account stops working too, so the user must type the password and the authenticator code again. It returns `no_session` if the account is not connected.
 
     api-cli run disable-account --agent module/roadwarrior1 --data '{"name": "john"}'

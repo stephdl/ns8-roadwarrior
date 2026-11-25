@@ -744,7 +744,8 @@ def seal(payload, public_key):
     """Encrypt payload for the browser that sent public_key (base64 SPKI, RSA-OAEP SHA-256).
 
     The core keeps task output in Redis for hours: only ciphertext must land there.
-    Without public_key, the payload is returned as is, for api-cli users on the node.
+    Without public_key, the payload is returned as is: a troubleshooting path for root with api-cli,
+    documented in the README because the plain output then stays in Redis.
     """
     if not public_key:
         return payload
