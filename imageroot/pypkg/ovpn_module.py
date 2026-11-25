@@ -389,17 +389,33 @@ def is_route_of(instance, module_id):
     return bool(module_id) and (instance == module_id or instance.startswith(module_id + "_"))
 
 
+def run_local_task(agent_id, action, data=None):
+    """Run a task through the leader, or return None when it cannot answer.
+
+    The units call this at start: a node that boots while the leader is down must still start.
+    """
+    try:
+        response = agent.tasks.run(agent_id=agent_id, action=action, data=data or {},
+                                   extra={"isNotificationHidden": True}, retry_attempts=2)
+    except Exception as ex:
+        log(agent.SD_WARNING + f"cannot run {action} on {agent_id}: {ex}")
+        return None
+    if response["exit_code"] != 0:
+        log(agent.SD_WARNING + f"{action} on {agent_id} failed: {response.get('error', '')}")
+        return None
+    return response["output"]
+
+
 def traefik_hosts(rdb, node_id, skip_module=""):
     traefik = rdb.get(f"node/{node_id}/default_instance/traefik")
     if not traefik:
         return []
     # The hosts set keeps the name of a route moved to another node: ask Traefik for its real routes
-    response = agent.tasks.run(agent_id=f"module/{traefik}", action="list-routes", data={"expand_list": True},
-                               extra={"isNotificationHidden": True})
-    if response["exit_code"] == 0 and isinstance(response["output"], list):
-        return sorted({route["host"] for route in response["output"]
+    routes = run_local_task(f"module/{traefik}", "list-routes", {"expand_list": True})
+    if isinstance(routes, list):
+        return sorted({route["host"] for route in routes
                        if route.get("host") and not is_route_of(route.get("instance", ""), skip_module)})
-    log(agent.SD_WARNING + f"cannot list the routes of {traefik}, using its hosts set: {response.get('error', '')}")
+    log(agent.SD_WARNING + f"using the hosts set of {traefik}")
     return sorted(rdb.smembers(f"module/{traefik}/hosts"))
 
 
@@ -421,17 +437,14 @@ def is_ssh(port):
 
 def ssh_ports():
     """Ports where sshd listens, among the ports the node firewall opens. 22/tcp when none answers."""
-    response = agent.tasks.run(agent_id=f"node/{os.environ['NODE_ID']}", action="get-firewall-status",
-                               extra={"isNotificationHidden": True})
+    status = run_local_task(f"node/{os.environ['NODE_ID']}", "get-firewall-status")
     candidates = ["22/tcp"]
-    if response["exit_code"] == 0:
+    if isinstance(status, dict):
         # An admin who moves sshd opens the new port in the ssh service or as a plain port
-        for service in response["output"].get("services", []):
+        for service in status.get("services", []):
             if service.get("name") == "ssh":
                 candidates += service.get("ports", [])
-        candidates += response["output"].get("ports", [])
-    else:
-        log(agent.SD_WARNING + f"cannot read the firewall of the node: {response.get('error', '')}")
+        candidates += status.get("ports", [])
     ports = []
     for item in dict.fromkeys(candidates):
         port, _, protocol = item.partition("/")
