@@ -13,13 +13,19 @@
             "user_domain": "example.org",
             "totp_required": false,
             "expose_samba": true,
+            "expose_ssh": false,
+            "ssh_ports": ["22/tcp"],
             "user_domains": [
                 "example.org"
             ],
             "samba_available": true,
             "server_ip": "10.8.0.1",
             "ip_allowlist": "10.8.0.0/24",
-            "has_accounts": false
+            "has_accounts": false,
+            "mode": "hub",
+            "hub": "",
+            "hubs": [],
+            "spoke_ip": ""
         }
     ],
     "type": "object",
@@ -32,6 +38,8 @@
         "user_domain",
         "totp_required",
         "expose_samba",
+        "expose_ssh",
+        "ssh_ports",
         "user_domains",
         "samba_available",
         "server_ip",
@@ -67,6 +75,16 @@
         "expose_samba": {
             "type": "boolean"
         },
+        "expose_ssh": {
+            "type": "boolean"
+        },
+        "ssh_ports": {
+            "type": "array",
+            "description": "Ports of sshd found at the last save of the settings",
+            "items": {
+                "type": "string"
+            }
+        },
         "user_domains": {
             "type": "array",
             "items": {
@@ -84,6 +102,45 @@
         },
         "has_accounts": {
             "type": "boolean"
+        },
+        "mode": {
+            "type": "string",
+            "enum": [
+                "hub",
+                "spoke"
+            ]
+        },
+        "hub": {
+            "type": "string"
+        },
+        "spoke_ip": {
+            "type": "string"
+        },
+        "hubs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "module_id": {
+                        "type": "string"
+                    },
+                    "node_id": {
+                        "type": "string"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "module_uuid": {
+                        "type": "string"
+                    },
+                    "leader": {
+                        "type": "boolean"
+                    },
+                    "node_name": {
+                        "type": "string"
+                    }
+                }
+            }
         }
     }
 }

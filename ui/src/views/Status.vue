@@ -57,7 +57,18 @@
           >
             <template slot="content">
               <div class="card-rows">
-                <div v-if="config.configured" class="card-row">
+                <div
+                  v-if="config.mode === 'spoke' && config.hub"
+                  class="card-row"
+                >
+                  <cv-link @click="goToAppPage(config.hub, 'accounts')">
+                    {{ $t("status.users_on_hub", { hub: config.hub }) }}
+                  </cv-link>
+                </div>
+                <div v-if="vpnAddress" class="card-row">
+                  {{ $t("status.vpn_address", { ip: vpnAddress }) }}
+                </div>
+                <div v-if="config.configured" class="card-row mg-top-sm">
                   <NsTag
                     v-if="vpnLoaded"
                     :label="
@@ -77,7 +88,7 @@
             </template>
           </NsInfoCard>
           <NsInfoCard
-            v-if="config.configured"
+            v-if="config.configured && config.mode !== 'spoke'"
             light
             :title="String(vpn.sessions.length)"
             :description="$tc('status.connected_clients', vpn.sessions.length)"
@@ -313,7 +324,17 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 
-const LONG_RUNNING_SERVICES = ["openvpn-server", "openvpn-dns"];
+// Services that must run once configured, for each mode
+const LONG_RUNNING_SERVICES = {
+  hub: [
+    "openvpn-hub",
+    "openvpn-hub-server",
+    "openvpn-hub-dns",
+    "openvpn-s2s",
+    "openvpn-spoke",
+  ],
+  spoke: ["openvpn-spoke"],
+};
 const CA_WARNING_DAYS = 90;
 
 export default {
@@ -339,7 +360,7 @@ export default {
       Restart20,
       Network_232,
       UserMultiple32,
-      config: { configured: false, host: "", port: 0 },
+      config: { configured: false, host: "", port: 0, mode: "hub" },
       vpn: { running: false, sessions: [], ca_expiry: "" },
       status: { instance: "", services: [], images: [], volumes: [] },
       // Hide the server state until the first answer: a default "stopped" would mislead
@@ -360,14 +381,29 @@ export default {
   computed: {
     ...mapState(["instanceName", "core", "appName"]),
     vpnTitle() {
-      return this.config.configured
-        ? this.config.host
-        : this.$t("status.not_configured");
+      if (!this.config.configured) {
+        return this.$t("status.not_configured");
+      }
+      return this.config.mode === "spoke" ? this.config.hub : this.config.host;
+    },
+    vpnAddress() {
+      // Address of this node for the VPN users: through the spoke of the hub node
+      if (!this.config.configured || this.config.mode === "spoke") {
+        return "";
+      }
+      return (this.config.spoke_ip || "").split("/")[0];
     },
     vpnDescription() {
-      return this.config.configured
-        ? this.$t("status.vpn_server_port", { port: this.config.port })
-        : this.$t("status.vpn_server");
+      if (!this.config.configured) {
+        return this.$t("status.vpn_server");
+      }
+      if (this.config.mode === "spoke") {
+        return this.$t("status.spoke_of_hub", { ip: this.config.spoke_ip });
+      }
+      return this.$t("status.hub_server_port", { port: this.config.port });
+    },
+    longRunningServices() {
+      return LONG_RUNNING_SERVICES[this.config.mode] || [];
     },
     caExpiry() {
       const date = new Date(this.vpn.ca_expiry);
@@ -386,7 +422,7 @@ export default {
         (service) =>
           service.failed ||
           (this.config.configured &&
-            LONG_RUNNING_SERVICES.includes(service.name) &&
+            this.longRunningServices.includes(service.name) &&
             !service.active)
       );
     },
@@ -494,5 +530,13 @@ export default {
 
 .break-word {
   word-break: break-word;
+}
+
+// The tag is a block of its own: text-align alone leaves it on the left
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
 }
 </style>

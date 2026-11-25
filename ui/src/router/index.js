@@ -7,6 +7,7 @@ import VueRouter from "vue-router";
 import Status from "../views/Status.vue";
 import Accounts from "../views/Accounts.vue";
 import Settings from "../views/Settings.vue";
+import Nodes from "../views/Nodes.vue";
 import Sessions from "../views/Sessions.vue";
 
 Vue.use(VueRouter);
@@ -28,6 +29,12 @@ const routes = [
     name: "Sessions",
     component: Sessions,
   },
+  {
+    path: "/nodes",
+    name: "Nodes",
+    component: Nodes,
+  },
+
   {
     path: "/settings",
     name: "Settings",

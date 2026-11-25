@@ -11,7 +11,8 @@
 #
 # If the original instance still runs on this node, its port and network conflict.
 # The copy then stays stopped and leaves a marker: the module-removed event starts it
-# once the original is gone. Other validation errors need the admin, not a retry.
+# once the original is gone. A node restored before its hub leaves the same marker, and
+# the hub-changed event starts it. Other validation errors need the admin, not a retry.
 
 import json
 import os
@@ -21,27 +22,38 @@ import agent
 import ovpn_module as om
 
 conf = om.settings()
-if not conf["OVPN_HOST"]:
+if om.mode() == "spoke" and not om.join_is_mine():
+    # Two nodes with one certificate would kick each other off the link: the clone joins on its own
+    om.forget_join()
+if om.mode() == "spoke":
+    data = {"mode": "spoke", "hub": om.current_hub(agent.redis_connect(use_replica=True)),
+            "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+            "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"])}
+elif not conf["OVPN_HOST"]:
     sys.exit(0)
-data = {
-    "host": conf["OVPN_HOST"],
-    "port": int(conf["OVPN_PORT"]),
-    "network": conf["OVPN_NETWORK"],
-    "auth_mode": conf["OVPN_AUTH_MODE"],
-    "user_domain": conf["OVPN_USER_DOMAIN"],
-    "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
-    "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
-}
-# Errors an original instance on the same node causes, and that its removal clears
-CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use")}
+else:
+    data = {
+        "mode": om.mode(),
+        "host": conf["OVPN_HOST"],
+        "port": int(conf["OVPN_PORT"]),
+        "network": conf["OVPN_NETWORK"],
+        "auth_mode": conf["OVPN_AUTH_MODE"],
+        "user_domain": conf["OVPN_USER_DOMAIN"],
+        "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
+        "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+        "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
+    }
+# Errors an original instance on the same node causes, and that its removal clears:
+# its tun holds the network or the link address. A missing hub comes back with a restore of the hub.
+CONFLICTS = {("network", "network_overlap"), ("port", "port_in_use"), ("hub", "link_overlap"), ("hub", "hub_not_found")}
 
 response = agent.tasks.run(agent_id=os.environ["AGENT_ID"], action="configure-module", data=data)
 if response["exit_code"] == 2:
-    subprocess.run(["systemctl", "--user", "disable", "--now", "openvpn-server.service", "openvpn-dns.service"], check=False)
+    subprocess.run(["systemctl", "--user", "disable", "--now", *om.ALL_UNITS], check=False)
     errors = response["output"] if isinstance(response["output"], list) else []
     if errors and all((e.get("parameter"), e.get("error")) in CONFLICTS for e in errors):
         open(om.WAITING, "w").close()
-        print(agent.SD_WARNING + "The VPN stays stopped until the instance that holds its network and port is removed: "
+        print(agent.SD_WARNING + "The VPN stays stopped until the instance that holds its network and port is removed, or the hub is back: "
               + json.dumps(errors), file=sys.stderr)
     else:
         print(agent.SD_WARNING + "The VPN stays stopped, its settings are not valid on this node. Fix them and save again: "

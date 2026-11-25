@@ -37,7 +37,7 @@
               kind="secondary"
               :icon="Restart20"
               :loading="loading.getVpnStatus"
-              :disabled="loading.getVpnStatus"
+              :disabled="loading.getVpnStatus || !loaded || !!hub"
               @click="getVpnStatus"
               >{{ $t("sessions.refresh") }}</NsButton
             >
@@ -56,7 +56,7 @@
             :noSearchResultsDescription="
               core.$t('common.no_search_results_description')
             "
-            :isLoading="loading.getVpnStatus && !loaded"
+            :isLoading="!loaded"
             :skeletonRows="3"
             :itemsPerPageLabel="core.$t('pagination.items_per_page')"
             :rangeOfTotalItemsLabel="core.$t('pagination.range_of_total_items')"
@@ -67,7 +67,8 @@
             @updatePage="tablePage = $event"
           >
             <template slot="empty-state">
-              <NsEmptyState :title="$t('sessions.no_sessions')" />
+              <SpokeEmptyState v-if="hub" :hub="hub" page="sessions" />
+              <NsEmptyState v-else :title="$t('sessions.no_sessions')" />
             </template>
             <template slot="data">
               <cv-data-table-row
@@ -116,6 +117,7 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 import ModuleTask from "@/mixins/moduleTask";
+import SpokeEmptyState from "@/components/SpokeEmptyState.vue";
 import Logout20 from "@carbon/icons-vue/es/logout/20";
 
 // The server writes its status every 30 seconds: no point in asking more often
@@ -123,6 +125,7 @@ const REFRESH_SECONDS = 30;
 
 export default {
   name: "Sessions",
+  components: { SpokeEmptyState },
   mixins: [
     TaskService,
     IconService,
@@ -145,6 +148,7 @@ export default {
       sessions: [],
       tablePage: [],
       loaded: false,
+      hub: "",
       columns: ["name", "vpn_address", "real_address", "since", "traffic"],
       loading: {
         getVpnStatus: false,
@@ -163,11 +167,28 @@ export default {
     },
   },
   created() {
-    this.getVpnStatus();
-    this.refreshInterval = setInterval(
-      this.getVpnStatus,
-      REFRESH_SECONDS * 1000
-    );
+    const fail = (message) => {
+      this.error.getVpnStatus = message;
+      this.loaded = true;
+    };
+    this.runModuleTask({
+      action: "get-configuration",
+      completed: (config) => {
+        if (config.mode === "spoke") {
+          // The users of a spoke connect to its hub
+          this.hub = config.hub;
+          this.loaded = true;
+          return;
+        }
+        this.getVpnStatus();
+        this.refreshInterval = setInterval(
+          this.getVpnStatus,
+          REFRESH_SECONDS * 1000
+        );
+      },
+      aborted: fail,
+      failed: fail,
+    });
   },
   beforeDestroy() {
     clearInterval(this.refreshInterval);

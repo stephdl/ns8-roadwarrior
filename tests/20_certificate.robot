@@ -10,18 +10,36 @@ Check if a certificate account can connect
     Should Contain    ${output}    connected
     Should Contain    ${output}    2 packets received
 
-Check if a client reaches Traefik through the tunnel
-    ${output} =    Connect client    laptop1    -- wget -q --no-check-certificate -O /dev/null -S https://10.66.0.1/
+Check if a client reaches Traefik through the spoke of the hub
+    ${output} =    Connect client    laptop1    -- wget -q --no-check-certificate -O /dev/null -S https://10.66.1.2/
     Should Contain    ${output}    HTTP/
 
 Check if SSH is closed to the VPN clients
-    ${output} =    Connect client    laptop1    -- sh -c "nc -z -w 3 10.66.0.1 22 && echo open || echo closed"
-    Should Contain    ${output}    closed
+    ${output} =    Connect client    laptop1    -- sh -c "nc -z -w 3 10.66.1.2 22 && echo SSH_OPEN || echo SSH_CLOSED"
+    Should Contain    ${output}    SSH_CLOSED
+
+Check if SSH opens to the VPN clients when the node allows it
+    ${since} =    Link of the hub node since
+    ${config} =    Configuration    certificate    expose_ssh=true
+    Run module action    configure-module    ${config}
+    ${output} =    Connect client    laptop1    -- sh -c "nc -z -w 3 10.66.1.2 22 && echo SSH_OPEN || echo SSH_CLOSED"
+    Should Contain    ${output}    SSH_OPEN
+    ${config} =    Configuration    certificate
+    Run module action    configure-module    ${config}
+    ${output} =    Connect client    laptop1    -- sh -c "nc -z -w 3 10.66.1.2 22 && echo SSH_OPEN || echo SSH_CLOSED"
+    Should Contain    ${output}    SSH_CLOSED
+    # A save keeps the certificate of the hub node: its link stays up
+    ${after} =    Link of the hub node since
+    Should Be Equal    ${since}    ${after}
+
+Check if a hub with accounts cannot become a node
+    ${error} =    Validation error of    request-spoke-certificate    {}
+    Should Be Equal    ${error}    accounts_exist
 
 Check if the VPN resolver answers the node name
     ${fqdn} =    Execute Command    hostname -f
     ${output} =    Connect client    laptop1    -- nslookup ${fqdn} 10.66.0.1
-    Should Contain    ${output}    Address: 10.66.0.1
+    Should Contain    ${output}    Address: 10.66.1.2
 
 Check if a disabled account cannot connect
     Run module action    disable-account    {"name": "laptop1"}

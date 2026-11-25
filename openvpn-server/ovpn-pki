@@ -13,10 +13,17 @@
 #   ovpn-pki profile NAME          print the client profile
 #   ovpn-pki list                  print "name status expiry" for every client certificate
 #   ovpn-pki ca-expiry             print the CA expiry date
+# A hub has a second PKI for the site-to-site link, apart from the one of the users:
+# a user certificate must never open the link of a node, nor a node certificate a user session.
+#   ovpn-pki s2s-init              create the CA and the server keys of the link once
+#   ovpn-pki s2s-sign NAME         sign the CSR read on stdin for a node, print the certificate
+#   ovpn-pki s2s-revoke NAME       revoke the certificate of a node and publish the new CRL
+#   ovpn-pki s2s-ca                print the CA certificate of the link
 
 set -e
 
-. /run/ovpn/server.env
+# A spoke has no server.env: only the s2s commands run there
+[ -f /run/ovpn/server.env ] && . /run/ovpn/server.env
 
 export EASYRSA_PKI=/etc/openvpn/pki
 export EASYRSA_BATCH=1
@@ -32,6 +39,21 @@ pki=${EASYRSA_PKI}
 pem() {
     openssl x509 -in "$1" -outform PEM
 }
+
+s2s_pki=/etc/openvpn/s2s-pki
+
+s2s_valid() {
+    awk -F'\t' -v cn="/CN=$1" '$1 == "V" && $6 == cn {found=1} END {exit !found}' "${s2s_pki}/index.txt"
+}
+
+case "$1" in
+s2s-*)
+    # The server container creates the PKI at start while the module may already sign a node
+    mkdir -p /etc/openvpn/run
+    exec 9>/etc/openvpn/run/s2s-pki.lock
+    flock 9
+    ;;
+esac
 
 case "$1" in
 init)
@@ -113,12 +135,50 @@ list)
         if (n != "server") print n, st, $2
     }' "${pki}/index.txt"
     ;;
+s2s-init)
+    if [ ! -f "${s2s_pki}/ca.crt" ]; then
+        export EASYRSA_PKI="${s2s_pki}"
+        "${easyrsa}" init-pki >&2
+        EASYRSA_REQ_CN="${OVPN_CA_CN:-NS8 OpenVPN} site-to-site" "${easyrsa}" build-ca nopass >&2
+        "${easyrsa}" build-server-full server nopass >&2
+        "${easyrsa}" gen-crl >&2
+    fi
+    ;;
+s2s-sign)
+    name=${2:?name}
+    [ -f "${s2s_pki}/ca.crt" ] || { echo "the site-to-site PKI is not ready yet" >&2; exit 1; }
+    export EASYRSA_PKI="${s2s_pki}"
+    # A node that joins again comes with a new key: its old certificate must stop working
+    if s2s_valid "${name}"; then
+        "${easyrsa}" revoke "${name}" >&2
+        "${easyrsa}" gen-crl >&2
+    fi
+    rm -f "${s2s_pki}/reqs/${name}.req" "${s2s_pki}/issued/${name}.crt"
+    req=$(mktemp)
+    cat > "${req}"
+    "${easyrsa}" import-req "${req}" "${name}" >&2
+    rm -f "${req}"
+    "${easyrsa}" sign-req client "${name}" >&2
+    pem "${s2s_pki}/issued/${name}.crt"
+    ;;
+s2s-revoke)
+    name=${2:?name}
+    export EASYRSA_PKI="${s2s_pki}"
+    if s2s_valid "${name}"; then
+        "${easyrsa}" revoke "${name}" >&2
+        "${easyrsa}" gen-crl >&2
+    fi
+    rm -f "${s2s_pki}/reqs/${name}.req" "${s2s_pki}/issued/${name}.crt"
+    ;;
+s2s-ca)
+    pem "${s2s_pki}/ca.crt"
+    ;;
 ca-expiry)
     # ISO 8601 so that every browser parses it
     openssl x509 -in "${pki}/ca.crt" -noout -enddate -dateopt iso_8601 | cut -d= -f2 | sed 's/ /T/' 
     ;;
 *)
-    echo "usage: ovpn-pki init|add|revoke|profile|list|ca-expiry" >&2
+    echo "usage: ovpn-pki init|add|revoke|renew|profile|list|ca-expiry|s2s-init|s2s-sign|s2s-revoke|s2s-ca" >&2
     exit 2
     ;;
 esac

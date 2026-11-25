@@ -15,26 +15,47 @@ import shlex
 import socket
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 import agent
-from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import agent.ldapproxy
 
 CONTAINER = "openvpn-server"
+S2S_CONTAINER = "openvpn-s2s"
 RUNTIME_DIR = "ovpn"
 SERVER_ENV = "ovpn/server.env"
+S2S_ENV = "ovpn/s2s.env"
+SPOKE_ENV = "ovpn/spoke.env"
+CCD_DIR = "ovpn/ccd"
+SPOKE_CA = "ovpn/spoke-ca.crt"
+SPOKE_CERT = "ovpn/spoke.crt"
+SPOKE_KEY = "secrets/spoke.key"
+# What the hub gave this node when it joined: {"hub", "hub_uuid", "ip", "rw_network", "ca", "cert"}
+SPOKE_JOIN = "spoke.json"
+# Nodes registered on a hub: {module_uuid: {"module_id", "node_id", "ip"}}.
+# What a node opens to the users lives in its own environment: the hub reads it there.
+# The uuid is the key: a restore in place changes the module id, never the uuid.
+SPOKES = "spokes.json"
+# Names of the tun devices inside the network namespace of the hub pod
+HUB_RW_TUN = "tunrw"
+HUB_S2S_TUN = "tuns2s"
 AUTH_JSON = "ovpn/auth.json"
 HOSTS = "ovpn/hosts"
 DNSMASQ_CONF = "ovpn/dnsmasq.conf"
+# Routes and DNS settings of the users, read by the server at each new session: a change needs no restart
+PUSH_JSON = "ovpn/push.json"
 # Read by the server at each new session: a change needs no restart
 DISABLED = "ovpn/disabled.json"
 # Left by a restored or moved copy that waits for the original to leave the node
 WAITING = "waiting-for-original"
 LDAP_PASSWORD = "secrets/ldap-bind-password"
+# Loopback of the node seen from the hub pod: --map-host-loopback of openvpn-hub.service
+HOST_LOOPBACK = "169.254.1.2"
 TOTP_FILE = "secrets/totp.json"
 ACCOUNTS = "accounts.json"
 
@@ -46,7 +67,22 @@ SETTINGS_DEFAULTS = {
     "OVPN_USER_DOMAIN": "",
     "OVPN_TOTP_REQUIRED": "False",
     "OVPN_EXPOSE_SAMBA": "False",
+    "OVPN_EXPOSE_SSH": "False",
+    "OVPN_SSH_PORTS": "",
+    "OVPN_MODE": "hub",
+    "OVPN_HUB": "",
 }
+
+MODES = ("hub", "spoke")
+# Units of each mode. A hub also runs a spoke, so the apps of its own node are reached like the others.
+UNITS = {
+    "hub": ["openvpn-hub.service", "openvpn-hub-server.service", "openvpn-hub-dns.service",
+            "openvpn-s2s.service", "openvpn-spoke.service"],
+    "spoke": ["openvpn-spoke.service"],
+}
+ALL_UNITS = sorted({unit for units in UNITS.values() for unit in units})
+SERVER_UNIT = "openvpn-hub-server.service"
+DNS_UNIT = "openvpn-hub-dns.service"
 
 # Ports of samba, from ns8-samba create-module/70firewall
 SAMBA_PORTS = [
@@ -115,7 +151,314 @@ def network_parts(cidr):
 
 
 def is_configured():
-    return bool(os.environ.get("OVPN_HOST"))
+    return bool(os.environ.get("OVPN_HOST")) or mode() == "spoke"
+
+
+def mode():
+    return os.environ.get("OVPN_MODE") or "hub"
+
+
+def s2s_networks(rw_cidr):
+    """Addresses of the site-to-site link of a hub, next to the network of the users.
+
+    The link takes the other half of the supernet of the users network. A node tun gets the
+    supernet prefix, so its replies to the users go back into the tunnel with no extra route.
+    """
+    rw = ipaddress.ip_network(rw_cidr, strict=True)
+    supernet = rw.supernet()
+    s2s = next(net for net in supernet.subnets(new_prefix=rw.prefixlen) if net != rw)
+    hosts = s2s.hosts()
+    hub_ip = str(next(hosts))
+    local_ip = str(next(hosts))
+    return {"supernet": supernet, "s2s": s2s, "hub_ip": hub_ip, "local_ip": local_ip}
+
+
+def host_tun_ip(conf=None):
+    """Address of the tun the core creates on the node, with its prefix."""
+    conf = conf or settings()
+    if mode() == "spoke":
+        return os.environ.get("OVPN_SPOKE_IP", "")
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    return f"{link['local_ip']}/{link['supernet'].prefixlen}"
+
+
+def users_network():
+    """Network of the users, as the node tun sees them: the one of the hub on a spoke."""
+    if mode() == "spoke":
+        return os.environ.get("OVPN_RW_NETWORK", "")
+    return settings()["OVPN_NETWORK"]
+
+
+def node_vpn_ip(rdb, node_id):
+    return rdb.hget(f"node/{node_id}/vpn", "ip_address") or ""
+
+
+def list_hubs(rdb):
+    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "node_name", "host", "leader"}]."""
+    hubs = []
+    leader_id = rdb.hget("cluster/environment", "NODE_ID") or ""
+    for key in rdb.scan_iter("module/roadwarrior*/environment"):
+        env = rdb.hgetall(key)
+        module_id = key.split("/")[1]
+        if env.get("OVPN_MODE") == "hub" and module_id != os.environ.get("MODULE_ID"):
+            hubs.append({"module_id": module_id, "module_uuid": env.get("MODULE_UUID", ""),
+                         "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", ""),
+                         "node_name": rdb.get(f"node/{env.get('NODE_ID')}/ui_name") or "",
+                         "leader": env.get("NODE_ID") == leader_id})
+    return sorted(hubs, key=lambda h: h["module_id"])
+
+
+def roadwarrior_instances(rdb):
+    """Current {module_uuid: (module_id, node_id)} of the roadwarrior instances of the cluster."""
+    instances = {}
+    for key in rdb.scan_iter("module/roadwarrior*/environment"):
+        uuid, node_id = rdb.hmget(key, "MODULE_UUID", "NODE_ID")
+        if uuid:
+            instances[uuid] = (key.split("/")[1], node_id or "")
+    return instances
+
+
+def current_spokes(rdb):
+    """Registered nodes with their current module id and node: a restore or a move changes them.
+
+    What each node opens to the users comes from its environment, the only place it is set.
+    """
+    spokes = load_json(SPOKES, {})
+    instances = roadwarrior_instances(rdb)
+    for uuid, info in spokes.items():
+        if uuid in instances:
+            info["module_id"], info["node_id"] = instances[uuid]
+        env = rdb.hmget(f"module/{info['module_id']}/environment", "OVPN_EXPOSE_SAMBA", "OVPN_EXPOSE_SSH")
+        info["expose_samba"], info["expose_ssh"] = is_true(env[0]), is_true(env[1])
+    return spokes
+
+
+def current_hub(rdb):
+    """Module id of the hub this node joined, found again by its uuid after a restore of the hub."""
+    hub_uuid = load_join().get("hub_uuid", "")
+    return roadwarrior_instances(rdb).get(hub_uuid, (os.environ.get("OVPN_HUB", ""), ""))[0]
+
+
+def load_spokes():
+    lock_state()
+    return load_json(SPOKES, {})
+
+
+def save_spokes(spokes):
+    lock_state()
+    save_json(SPOKES, spokes)
+
+
+def assign_spoke_ip(spokes, uuid, conf=None):
+    """Keep the address of a node that joins again, else take the first free one."""
+    conf = conf or settings()
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    if uuid == os.environ["MODULE_UUID"]:
+        return link["local_ip"]
+    # An address of an older network of the hub is not kept
+    if uuid in spokes and ipaddress.ip_address(spokes[uuid]["ip"]) in link["s2s"]:
+        return spokes[uuid]["ip"]
+    others = {info["ip"] for u, info in spokes.items() if u != uuid}
+    taken = {link["hub_ip"], link["local_ip"]} | others
+    for host in link["s2s"].hosts():
+        if str(host) not in taken:
+            return str(host)
+    raise RuntimeError("no free address left in the site-to-site network")
+
+
+def sign_spoke(name, csr):
+    """Sign the CSR of a node with the site-to-site CA. Return (ca, cert)."""
+    # The server container creates the PKI when it starts: give it some time after a restart
+    for _ in range(30):
+        proc = podman_exec("ovpn-pki", "s2s-sign", name, input=csr, container=S2S_CONTAINER, check=False)
+        if proc.returncode == 0:
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError(f"cannot sign the certificate of {name}")
+    cert = proc.stdout
+    ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER).stdout
+    return ca, cert
+
+
+def register_spoke(module_id, uuid, node_id, csr):
+    """Register a node on this hub and return what it needs to join, to pass to its configure-module."""
+    conf = settings()
+    # Sign before the lock: a restarting link server waits for that lock before it creates the PKI
+    ca, cert = sign_spoke(uuid, csr)
+    spokes = load_spokes()
+    if uuid == os.environ["MODULE_UUID"]:
+        # A cloned hub has a new uuid: its own spoke under the old one goes
+        local_ip = s2s_networks(conf["OVPN_NETWORK"])["local_ip"]
+        spokes = {k: v for k, v in spokes.items() if k == uuid or v["ip"] != local_ip}
+    ip = assign_spoke_ip(spokes, uuid, conf)
+    spokes[uuid] = {"module_id": module_id, "node_id": str(node_id), "ip": ip}
+    save_spokes(spokes)
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    return {
+        "hub": os.environ["MODULE_ID"],
+        "hub_uuid": os.environ["MODULE_UUID"],
+        "ip": f"{ip}/{link['supernet'].prefixlen}",
+        "rw_network": conf["OVPN_NETWORK"],
+        "ca": ca,
+        "cert": cert,
+    }
+
+
+def unregister_spoke(rdb, module_id):
+    """Remove a node by its current module id, or by the last one known when it is gone."""
+    spokes = load_spokes()
+    current = current_spokes(rdb)
+    uuid = next((u for u, info in current.items() if info["module_id"] == module_id), None)
+    if uuid is None:
+        return False
+    forget_spoke(spokes, uuid)
+    return True
+
+
+def forget_spokes_gone(rdb):
+    """Remove the nodes whose instance left the cluster. A move or a restore keeps the uuid in the copy."""
+    spokes = load_spokes()
+    gone = set(spokes) - set(roadwarrior_instances(rdb)) - {os.environ["MODULE_UUID"]}
+    for uuid in gone:
+        forget_spoke(spokes, uuid)
+    return bool(gone)
+
+
+def forget_spoke(spokes, uuid):
+    spokes.pop(uuid)
+    podman_exec("ovpn-pki", "s2s-revoke", uuid, container=S2S_CONTAINER, check=False)
+    save_spokes(spokes)
+    # The link server reads the new CRL at the next connection: end the current one now
+    podman_exec("ovpn-mgmt", "s2s-kill", uuid, container=S2S_CONTAINER, check=False)
+
+
+def spoke_key_and_csr():
+    """Key of the node for the site-to-site link, made once. Only the CSR leaves the node."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    try:
+        with open(SPOKE_KEY, "rb") as f:
+            key = serialization.load_pem_private_key(f.read(), password=None)
+    except FileNotFoundError:
+        key = ec.generate_private_key(ec.SECP384R1())
+        write_private(SPOKE_KEY, key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption()).decode())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, os.environ["MODULE_UUID"])])
+    csr = x509.CertificateSigningRequestBuilder().subject_name(name).sign(key, hashes.SHA256())
+    return csr.public_bytes(serialization.Encoding.PEM).decode()
+
+
+def csr_name(csr):
+    """Common name of a node CSR, or None when the request is unreadable or not signed by its key."""
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    try:
+        req = x509.load_pem_x509_csr(csr.encode())
+    except ValueError:
+        return None
+    names = req.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    if len(names) != 1 or not req.is_signature_valid:
+        return None
+    return names[0].value
+
+
+def load_join():
+    return load_json(SPOKE_JOIN, {})
+
+
+def join_is_mine():
+    """False when the saved join names another instance: a clone copies the join of its original."""
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    cert = load_join().get("cert")
+    if not cert:
+        return True
+    try:
+        names = x509.load_pem_x509_certificate(cert.encode()).subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    except ValueError:
+        return False
+    return [n.value for n in names] == [os.environ["MODULE_UUID"]]
+
+
+def forget_join():
+    for path in (SPOKE_JOIN, SPOKE_KEY, SPOKE_CERT, SPOKE_CA):
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
+def save_join(join):
+    """Keep what the hub gave. It is in the backup: a restored node joins again without the hub."""
+    save_json(SPOKE_JOIN, join)
+
+
+def own_spoke_is_valid(conf=None):
+    """True when the spoke of the hub node holds a certificate of the current link CA, valid for 30 days."""
+    from cryptography import x509
+    conf = conf or settings()
+    entry = load_json(SPOKES, {}).get(os.environ["MODULE_UUID"])
+    if not entry or entry["ip"] != s2s_networks(conf["OVPN_NETWORK"])["local_ip"]:
+        return False
+    try:
+        with open(SPOKE_CERT, "rb") as f:
+            cert = x509.load_pem_x509_certificate(f.read())
+        with open(SPOKE_CA, "rb") as f:
+            ca = x509.load_pem_x509_certificate(f.read())
+        cert.verify_directly_issued_by(ca)
+    except (OSError, ValueError, TypeError, InvalidSignature):
+        return False
+    for _ in range(15):
+        current_ca = podman_exec("ovpn-pki", "s2s-ca", container=S2S_CONTAINER, check=False).stdout.strip()
+        if current_ca:
+            break
+        time.sleep(2)
+    else:
+        # The link server is still starting: a new certificate would only drop a working link
+        print("cannot read the link CA, keeping the certificate of this node", file=sys.stderr)
+        return True
+    if current_ca != ca.public_bytes(serialization.Encoding.PEM).decode().strip():
+        return False
+    return cert.not_valid_after_utc.timestamp() - time.time() > 30 * 86400
+
+
+def save_spoke_certs(ca, cert):
+    os.makedirs(RUNTIME_DIR, exist_ok=True)
+    changed = write_if_changed(SPOKE_CA, ca)
+    return write_if_changed(SPOKE_CERT, cert) or changed
+
+
+def spoke_hub_endpoint(rdb):
+    """Address and port of the hub, read again at each start: the hub may move to another node."""
+    if mode() == "hub":
+        node_id = os.environ["NODE_ID"]
+        port = os.environ.get("OVPN_S2S_PORT", "")
+    else:
+        hub = current_hub(rdb)
+        node_id = rdb.hget("cluster/module_node", hub) or ""
+        port = rdb.hget(f"module/{hub}/environment", "OVPN_S2S_PORT") or ""
+    return node_vpn_ip(rdb, node_id), port
+
+
+def write_if_changed(path, text):
+    try:
+        with open(path) as f:
+            if f.read() == text:
+                return False
+    except FileNotFoundError:
+        pass
+    write_text(path, text)
+    return True
+
+
+def env_text(values):
+    return "".join(f"{k}={shlex.quote(v)}\n" for k, v in values.items())
 
 
 def samba_on_node(rdb, node_id):
@@ -123,16 +466,46 @@ def samba_on_node(rdb, node_id):
     for key in rdb.scan_iter("module/*/environment"):
         module_id = key.split("/")[1]
         env = rdb.hgetall(key)
-        if env.get("NODE_ID") == str(node_id) and env.get("REALM") and env.get("IPADDRESS") \
-                and "account_provider" in rdb.smembers(f"module/{module_id}/flags"):
+        # Some samba releases drop the account_provider flag: the DC still publishes its ldap service
+        is_dc = "account_provider" in rdb.smembers(f"module/{module_id}/flags") \
+            or rdb.hget(f"module/{module_id}/srv/tcp/ldap", "schema") == "ad"
+        if env.get("NODE_ID") == str(node_id) and env.get("REALM") and env.get("IPADDRESS") and is_dc:
             return module_id, env["REALM"].lower(), env["IPADDRESS"]
     return None
 
 
-def traefik_hosts(rdb, node_id):
+def is_route_of(instance, module_id):
+    """Traefik names the routes of a module after it: the module id, or the module id and a suffix."""
+    return bool(module_id) and (instance == module_id or instance.startswith(module_id + "_"))
+
+
+def run_local_task(agent_id, action, data=None):
+    """Run a task through the leader, or return None when it cannot answer.
+
+    The units call this at start: a node that boots while the leader is down must still start.
+    """
+    try:
+        response = agent.tasks.run(agent_id=agent_id, action=action, data=data or {},
+                                   extra={"isNotificationHidden": True}, retry_attempts=2)
+    except Exception as ex:
+        log(agent.SD_WARNING + f"cannot run {action} on {agent_id}: {ex}")
+        return None
+    if response["exit_code"] != 0:
+        log(agent.SD_WARNING + f"{action} on {agent_id} failed: {response.get('error', '')}")
+        return None
+    return response["output"]
+
+
+def traefik_hosts(rdb, node_id, skip_module=""):
     traefik = rdb.get(f"node/{node_id}/default_instance/traefik")
     if not traefik:
         return []
+    # The hosts set keeps the name of a route moved to another node: ask Traefik for its real routes
+    routes = run_local_task(f"module/{traefik}", "list-routes", {"expand_list": True})
+    if isinstance(routes, list):
+        return sorted({route["host"] for route in routes
+                       if route.get("host") and not is_route_of(route.get("instance", ""), skip_module)})
+    log(agent.SD_WARNING + f"using the hosts set of {traefik}")
     return sorted(rdb.smembers(f"module/{traefik}/hosts"))
 
 
@@ -141,6 +514,46 @@ def firewall_ports(expose_samba):
     if expose_samba:
         ports += [p for p in SAMBA_PORTS if p not in ports]
     return ports
+
+
+def is_ssh(port):
+    """True when sshd answers on this port of the node: it greets every client first."""
+    try:
+        with socket.create_connection(("127.0.0.1", int(port)), timeout=1) as sock:
+            return sock.recv(8).startswith(b"SSH-")
+    except (OSError, ValueError):
+        return False
+
+
+def ssh_ports():
+    """Ports where sshd listens, among the ports the node firewall opens. 22/tcp when none answers."""
+    status = run_local_task(f"node/{os.environ['NODE_ID']}", "get-firewall-status")
+    candidates = ["22/tcp"]
+    if isinstance(status, dict):
+        # An admin who moves sshd opens the new port in the ssh service or as a plain port
+        for service in status.get("services", []):
+            if service.get("name") == "ssh":
+                candidates += service.get("ports", [])
+        candidates += status.get("ports", [])
+    ports = []
+    for item in dict.fromkeys(candidates):
+        port, _, protocol = item.partition("/")
+        if protocol == "tcp" and port.isdigit() and is_ssh(port):
+            ports.append(item)
+    if not ports:
+        log(agent.SD_WARNING + "sshd does not answer on any open port, using 22/tcp")
+        return ["22/tcp"]
+    return ports
+
+
+def zone_rules(expose_ssh, ports):
+    """Rich rules of the tun zone: SSH of the node, open or closed to the VPN users."""
+    target = "accept" if expose_ssh else "reject"
+    rules = []
+    for item in ports:
+        port, protocol = item.split("/")
+        rules.append(f"rule family=ipv4 source address={users_network()} port port={port} protocol={protocol} {target}")
+    return rules
 
 
 def write_text(path, text):
@@ -176,37 +589,70 @@ def vpn_domains(hosts, vpn_host):
     return domains
 
 
-def write_runtime(rdb=None):
-    """Write the files read by the server container: server.env, auth.json, the resolver files and the LDAP password."""
+def write_runtime(rdb=None, skip_module=""):
+    """Write the files read by the containers of the mode.
+
+    skip_module is a module just removed: Traefik may still list its routes for a moment.
+    Return the set of units that must restart to apply the change.
+    """
     # disabled.json comes from accounts.json: read and write them under the same lock as the actions
     lock_state()
     rdb = rdb or agent.redis_connect(use_replica=True)
-    conf = settings()
-    node_id = os.environ["NODE_ID"]
-    net, server_ip = network_parts(conf["OVPN_NETWORK"])
-    samba = samba_on_node(rdb, node_id) if is_true(conf["OVPN_EXPOSE_SAMBA"]) else None
-    # The node name serves cluster-admin and path routes: it must enter the tunnel too.
-    # The VPN host stays out, or a reconnect would look for the server inside the tunnel.
-    vpn_host = conf["OVPN_HOST"].lower()
-    hosts = sorted(
-        {h.lower() for h in traefik_hosts(rdb, node_id) + [socket.getfqdn()] if "." in h} - {vpn_host}
-    )
-
-    push_routes = []
-    domains = vpn_domains(hosts, vpn_host)
-    if samba:
-        push_routes.append(f"{samba[2]}/255.255.255.255")
-        domains.add(samba[1])
-    domains = sorted(domains)
-
-    try:
-        with open(SERVER_ENV) as f:
-            old_server_env = f.read()
-    except FileNotFoundError:
-        old_server_env = ""
     os.makedirs(RUNTIME_DIR, exist_ok=True)
-    server_env = {
+    changed = set()
+    if mode() == "spoke":
+        join = load_join()
+        if join and save_spoke_certs(join["ca"], join["cert"]):
+            changed.add("openvpn-spoke.service")
+    remote, port = spoke_hub_endpoint(rdb)
+    if write_if_changed(SPOKE_ENV, env_text({
         "OVPN_TUN": os.environ["OVPN_TUN"],
+        "SPOKE_REMOTE": remote,
+        "SPOKE_PORT": port,
+    })):
+        changed.add("openvpn-spoke.service")
+    if mode() == "hub":
+        changed |= write_server_runtime(rdb, skip_module)
+    return changed
+
+
+def node_names(rdb, node_id, vpn_host, skip_module=""):
+    """Names of the HTTP routes of a node. The VPN host stays out, or a reconnect would look for it in the tunnel."""
+    return {h.lower() for h in traefik_hosts(rdb, node_id, skip_module) if "." in h} - {vpn_host}
+
+
+def write_server_runtime(rdb, skip_module=""):
+    """Files of the user server, of the resolver and of the site-to-site server."""
+    conf = settings()
+    net, server_ip = network_parts(conf["OVPN_NETWORK"])
+    vpn_host = conf["OVPN_HOST"].lower()
+    link = s2s_networks(conf["OVPN_NETWORK"])
+    spokes = current_spokes(rdb)
+    # The node name serves cluster-admin and path routes: it must enter the tunnel too
+    own_names = node_names(rdb, os.environ["NODE_ID"], vpn_host, skip_module) | ({socket.getfqdn().lower()} - {vpn_host} if "." in socket.getfqdn() else set())
+    # Each name answers with the address of the node that serves it, the hub node first
+    addresses = {host: link["local_ip"] for host in own_names}
+    dcs_by_spoke = {}
+    for spoke_id, info in sorted(spokes.items()):
+        if spoke_id != os.environ["MODULE_UUID"]:
+            for host in node_names(rdb, info["node_id"], vpn_host, skip_module):
+                addresses.setdefault(host, info["ip"])
+        samba = samba_on_node(rdb, info["node_id"]) if info["expose_samba"] else None
+        if samba:
+            dcs_by_spoke[spoke_id] = samba
+    dcs = list(dcs_by_spoke.values())
+    changed = write_s2s_runtime(link, spokes, dcs_by_spoke)
+
+    hosts = sorted(addresses)
+    domains = vpn_domains(hosts, vpn_host)
+    push_routes = [f"{link['s2s'].network_address}/{link['s2s'].netmask}"]
+    for _, realm, ip in dcs:
+        push_routes.append(f"{ip}/255.255.255.255")
+        domains.add(realm)
+    save_json(PUSH_JSON, {"dns_server": server_ip, "routes": push_routes, "domains": sorted(domains)})
+
+    server_env = {
+        "OVPN_TUN": HUB_RW_TUN,
         "OVPN_NETWORK": str(net.network_address),
         "OVPN_NETMASK": str(net.netmask),
         "OVPN_SERVER_IP": server_ip,
@@ -214,17 +660,17 @@ def write_runtime(rdb=None):
         "OVPN_REMOTE": conf["OVPN_HOST"],
         "OVPN_CA_CN": f"{os.environ['MODULE_ID']} {conf['OVPN_HOST']}",
         "AUTH_MODE": conf["OVPN_AUTH_MODE"],
-        "PUSH_ROUTES": " ".join(push_routes),
-        "DNS_DOMAINS": " ".join(domains),
     }
-    new_server_env = "".join(f"{k}={shlex.quote(v)}\n" for k, v in server_env.items())
-    write_text(SERVER_ENV, new_server_env)
-    write_text(HOSTS, "".join(f"{server_ip} {host}\n" for host in hosts))
+    if write_if_changed(SERVER_ENV, env_text(server_env)):
+        changed.add(SERVER_UNIT)
+    write_text(HOSTS, "".join(f"{addresses[host]} {host}\n" for host in hosts))
     dnsmasq = "domain-needed\n"
-    if samba:
+    for _, realm, ip in dcs:
         # The realm and its SRV records come from the samba DNS
-        dnsmasq += f"server=/{samba[1]}/{samba[2]}\n"
-    write_text(DNSMASQ_CONF, dnsmasq)
+        dnsmasq += f"server=/{realm}/{ip}\n"
+    # dnsmasq reads its server lines only when it starts: SIGHUP reloads the hosts file alone
+    if write_if_changed(DNSMASQ_CONF, dnsmasq):
+        changed.add(DNS_UNIT)
 
     auth = {"totp_required": is_true(conf["OVPN_TOTP_REQUIRED"])}
     domain = conf["OVPN_USER_DOMAIN"]
@@ -234,15 +680,58 @@ def write_runtime(rdb=None):
             log(agent.SD_WARNING + f"user domain {domain} not found: password logins will fail")
         else:
             auth.update({k: ldap[k] for k in ("host", "port", "schema", "base_dn", "bind_dn")})
+            if ipaddress.ip_address(socket.gethostbyname(ldap["host"])).is_loopback:
+                # The server runs in the private namespace of the hub, where ldapproxy is not on
+                # 127.0.0.1: the hub unit maps the loopback of the node to this address
+                auth["host"] = HOST_LOOPBACK
             write_private(LDAP_PASSWORD, ldap["bind_password"])
     save_json(AUTH_JSON, auth)
     write_disabled(load_json(ACCOUNTS, {}))
-    # True when the server must restart to push the new settings
-    return new_server_env != old_server_env
+    return changed
 
 
-def podman_exec(*args, check=True, input=None):
-    cmd = ["podman", "exec"] + (["-i"] if input is not None else []) + [CONTAINER, *args]
+def write_s2s_runtime(link, spokes, dcs_by_spoke):
+    """Settings of the site-to-site server and one ccd file per node, with its fixed address."""
+    os.makedirs(CCD_DIR, exist_ok=True)
+    wanted = {}
+    for spoke_id, info in spokes.items():
+        ccd = f"ifconfig-push {info['ip']} {link['s2s'].netmask}\n"
+        if spoke_id in dcs_by_spoke:
+            # The DC of this node answers on its own address: the hub routes it into this node
+            ccd += f"iroute {dcs_by_spoke[spoke_id][2]} 255.255.255.255\n"
+        wanted[spoke_id] = ccd
+    for name in os.listdir(CCD_DIR):
+        if name not in wanted:
+            os.unlink(os.path.join(CCD_DIR, name))
+    for name, text in wanted.items():
+        write_if_changed(os.path.join(CCD_DIR, name), text)
+    s2s_env = {
+        "RW_TUN": HUB_RW_TUN,
+        "S2S_TUN": HUB_S2S_TUN,
+        "S2S_NETWORK": str(link["s2s"].network_address),
+        "S2S_NETMASK": str(link["s2s"].netmask),
+        "S2S_PORT": os.environ.get("OVPN_S2S_PORT", ""),
+        "S2S_ROUTES": " ".join(f"{dc[2]}/255.255.255.255" for dc in dcs_by_spoke.values()),
+    }
+    return {"openvpn-s2s.service"} if write_if_changed(S2S_ENV, env_text(s2s_env)) else set()
+
+
+def apply_runtime(changed):
+    """Restart what must restart, and let the resolver read its lists again.
+
+    The user server never restarts here: the admin may be connected through it. Its routes and
+    domains apply at the next session, and server.env only changes with configure-module.
+    """
+    # A unit writes the runtime files before it starts: it would wait for our lock forever
+    unlock_state()
+    for unit in sorted(changed - {SERVER_UNIT}):
+        subprocess.run(["systemctl", "--user", "try-restart", unit], check=False)
+    if mode() == "hub":
+        subprocess.run(["systemctl", "--user", "reload", DNS_UNIT], check=False)
+
+
+def podman_exec(*args, check=True, input=None, container=CONTAINER):
+    cmd = ["podman", "exec"] + (["-i"] if input is not None else []) + [container, *args]
     proc = subprocess.run(cmd, capture_output=True, text=True, input=input)
     if proc.stderr:
         log(proc.stderr.rstrip())
@@ -252,7 +741,7 @@ def podman_exec(*args, check=True, input=None):
 
 
 def server_running():
-    return subprocess.run(["systemctl", "--user", "-q", "is-active", "openvpn-server.service"]).returncode == 0
+    return subprocess.run(["systemctl", "--user", "-q", "is-active", SERVER_UNIT]).returncode == 0
 
 
 def pki_list():
@@ -279,6 +768,13 @@ def lock_state():
     if _state_lock is None:
         _state_lock = open("state.lock", "w")
         fcntl.flock(_state_lock, fcntl.LOCK_EX)
+
+
+def unlock_state():
+    global _state_lock
+    if _state_lock is not None:
+        _state_lock.close()
+        _state_lock = None
 
 
 def load_accounts():
@@ -328,7 +824,20 @@ def fail_validation(field, value, error):
     sys.exit(2)
 
 
+def check_can_be_spoke():
+    """Refuse the spoke role before the hub registers this node, not after."""
+    # The other nodes of a hub reach its users: they must not lose them silently
+    if mode() == "hub" and any(spoke != os.environ["MODULE_UUID"] for spoke in load_spokes()):
+        fail_validation("mode", "spoke", "hub_has_spokes")
+    # A spoke has no users: their profiles would stop working
+    if load_accounts():
+        fail_validation("mode", "spoke", "accounts_exist")
+
+
 def require_server():
+    # The users of a spoke connect to its hub: their accounts live there
+    if mode() == "spoke":
+        fail_validation("name", "", "spoke_has_no_accounts")
     if not server_running():
         fail_validation("name", "", "server_not_running")
 
@@ -351,7 +860,8 @@ def seal(payload, public_key):
     """Encrypt payload for the browser that sent public_key (base64 SPKI, RSA-OAEP SHA-256).
 
     The core keeps task output in Redis for hours: only ciphertext must land there.
-    Without public_key, the payload is returned as is, for api-cli users on the node.
+    Without public_key, the payload is returned as is: a troubleshooting path for root with api-cli,
+    documented in the README because the plain output then stays in Redis.
     """
     if not public_key:
         return payload

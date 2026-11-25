@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A roadwarrior instance of another node joins this hub. The admin, or the UI of that node, passes
+# its certificate request here, then the answer to the configure-module of that node.
+
+import json
+import os
+import sys
+import agent
+import ovpn_module as om
+
+request = json.load(sys.stdin)
+module_id = request["module_id"]
+if om.mode() != "hub":
+    om.fail_validation("module_id", module_id, "not_a_hub")
+rdb = agent.redis_connect(use_replica=True)
+node_id = rdb.hget("cluster/module_node", module_id)
+uuid = rdb.hget(f"module/{module_id}/environment", "MODULE_UUID")
+if module_id == os.environ["MODULE_ID"] or not node_id or not uuid:
+    om.fail_validation("module_id", module_id, "module_not_found")
+# easyrsa keeps the subject of the request: a CSR named after another node would take its address and routes
+if om.csr_name(request["csr"]) != uuid:
+    om.fail_validation("csr", "", "csr_mismatch")
+if not om.server_running():
+    om.fail_validation("module_id", module_id, "server_not_running")
+
+joined = om.register_spoke(module_id, uuid, node_id, request["csr"])
+om.apply_runtime(om.write_runtime(rdb))
+json.dump(joined, fp=sys.stdout)

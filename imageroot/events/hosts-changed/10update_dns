@@ -5,18 +5,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# Traefik publishes this event when its host names change. New apps must resolve to the tun address.
+# Traefik publishes this event when its host names change. New apps must resolve to the address
+# of the node that serves them.
 
 import json
 import os
-import subprocess
 import sys
+import agent
 import ovpn_module as om
 
 event = json.load(sys.stdin)
-if not om.is_configured() or str(event.get("node_id")) != os.environ["NODE_ID"]:
+if not om.is_configured() or om.mode() == "spoke":
     sys.exit(0)
-if om.write_runtime():
-    # A new domain changes what the server pushes: clients reconnect on their own
-    subprocess.run(["systemctl", "--user", "try-restart", "openvpn-server.service"], check=False)
-subprocess.run(["systemctl", "--user", "reload", "openvpn-dns.service"], check=False)
+nodes = {os.environ["NODE_ID"]}
+nodes |= {info["node_id"] for info in om.current_spokes(agent.redis_connect(use_replica=True)).values()}
+if str(event.get("node_id")) not in nodes:
+    sys.exit(0)
+# A new domain reaches the clients at their next session
+om.apply_runtime(om.write_runtime())

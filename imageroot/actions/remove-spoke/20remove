@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Remove a node from this hub: its certificate is revoked and its address freed.
+# The node keeps trying to connect until its role changes.
+
+import json
+import os
+import sys
+import agent
+import ovpn_module as om
+
+module_id = json.load(sys.stdin)["module_id"]
+if module_id == os.environ["MODULE_ID"]:
+    # The spoke of this node leaves with the hub role, in configure-module
+    om.fail_validation("module_id", module_id, "own_spoke")
+if om.unregister_spoke(agent.redis_connect(use_replica=True), module_id):
+    om.apply_runtime(om.write_runtime())

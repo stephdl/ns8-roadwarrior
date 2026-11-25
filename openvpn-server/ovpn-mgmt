@@ -9,6 +9,7 @@
 #   ovpn-mgmt status     print the connected clients as JSON
 #   ovpn-mgmt kill NAME  disconnect every session of a certificate name, and tell the clients
 #                        to stop instead of reconnecting. Their session token stops working too.
+#   ovpn-mgmt s2s-kill NAME  disconnect a node from the link server of a hub
 
 import json
 import os
@@ -17,14 +18,15 @@ import sys
 import time
 
 SOCKET = "/etc/openvpn/run/mgmt.sock"
+S2S_SOCKET = "/etc/openvpn/run/s2s-mgmt.sock"
 # Read by ovpn-auth: a session token issued before this time no longer logs in
 TOKEN_CUTOFF = "/etc/openvpn/token-cutoff.json"
 
 
-def command(cmd, end):
+def command(cmd, end, path=SOCKET):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(5)
-        sock.connect(SOCKET)
+        sock.connect(path)
         buf = b""
         # Skip the banner line
         while b"\n" not in buf:
@@ -97,11 +99,20 @@ def kill(name):
             sys.exit(1)
 
 
+def s2s_kill(name):
+    out = command(f"kill {name}", ("SUCCESS", "ERROR"), S2S_SOCKET)
+    print(out.strip(), file=sys.stderr)
+    if "SUCCESS" not in out:
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ["status"]:
         status()
     elif sys.argv[1:2] == ["kill"] and len(sys.argv) == 3:
         kill(sys.argv[2])
+    elif sys.argv[1:2] == ["s2s-kill"] and len(sys.argv) == 3:
+        s2s_kill(sys.argv[2])
     else:
-        print("usage: ovpn-mgmt status|kill NAME", file=sys.stderr)
+        print("usage: ovpn-mgmt status|kill NAME|s2s-kill NAME", file=sys.stderr)
         sys.exit(2)

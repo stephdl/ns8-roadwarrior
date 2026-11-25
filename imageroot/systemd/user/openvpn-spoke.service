@@ -1,0 +1,40 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Link of this node with its hub. Host network: the core created the tun with the address the hub
+# gave, so the packets of the users land in the firewall zone of the node, never in a forward chain.
+# label=disable is needed to open /dev/net/tun under SELinux.
+
+[Unit]
+Description=Podman openvpn-spoke.service
+After=openvpn-s2s.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+Restart=always
+RestartSec=10
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/openvpn-spoke.pid %t/openvpn-spoke.ctr-id
+# The hub may have moved to another node since the last start
+ExecStartPre=runagent ovpn-write-runtime
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/openvpn-spoke.pid \
+    --cidfile %t/openvpn-spoke.ctr-id --cgroups=no-conmon \
+    --replace -d --name openvpn-spoke \
+    --network=host \
+    --device /dev/net/tun \
+    --security-opt label=disable \
+    --volume ./ovpn:/run/ovpn:ro,z \
+    --volume ./secrets:/run/ovpn-secrets:ro,z \
+    ${ROADWARRIOR_SERVER_IMAGE} spoke
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openvpn-spoke.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openvpn-spoke.ctr-id
+PIDFile=%t/openvpn-spoke.pid
+SyslogIdentifier=%u
+
+[Install]
+WantedBy=default.target

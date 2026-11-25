@@ -2,13 +2,13 @@
 
 OpenVPN road warrior server for NethServer 8.
 
-Remote users connect to one node. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
+Remote users connect to one node, the hub. They reach the web apps of that node through Traefik, and the Samba file server of the node if you allow it. Other nodes join the hub to be reached the same way. The VPN clients get their own private network, so you can keep a web app for them only: paste the VPN network in "Allow access from" of the app HTTP route.
 
 See [docs/network.md](docs/network.md) for diagrams of the network path, the login and the DNS.
 
-The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach other nodes, the LAN or Internet through the VPN.
+The module is rootless. The core creates the tun device, the firewall zone and the public UDP port. Clients do not reach the LAN or Internet through the VPN. They reach the nodes that [joined the hub](docs/network.md#a-hub-and-its-nodes).
 
-The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected.
+The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba ports when `expose_samba` is on. SSH from the VPN network is rejected, unless `expose_ssh` is on. The SSH port is the one where sshd answers, among the ports the node firewall opens.
 
 ## Install
 
@@ -17,6 +17,8 @@ The VPN zone opens 80/tcp, 443/tcp and 53/tcp+udp of the node, plus the Samba po
 The module pulls a second image, `ghcr.io/stephdl/roadwarrior-server`, that runs OpenVPN and dnsmasq.
 
 Install one instance per node that runs apps you want to reach through the VPN.
+
+Debian 13 does not work for now. With kernel 6.12.117 a rootless container cannot open a tun that has no owner, so OpenVPN fails with `Cannot ioctl TUNSETIFF ...: Operation not permitted`. The bug is NethServer/dev#8334, tracked here in #16. The fix is NethServer/ns8-core#1422: once a core with it is released, the module requires that core and Debian 13 works. Rocky Linux 9 is not affected.
 
 ## Configure
 
@@ -32,17 +34,31 @@ Install one instance per node that runs apps you want to reach through the VPN.
     }
     EOF
 
-`host`, `port`, `network` and `auth_mode` are required.
+`host`, `port`, `network` and `auth_mode` are required, except for a node of a hub.
+
+- `mode`: `hub` (default) or `spoke`. See [A hub and its nodes](docs/network.md#a-hub-and-its-nodes).
+- `hub`: with `spoke`, the instance of the hub this node joins. A spoke sends only `mode`, `hub`, `expose_samba` and `expose_ssh`.
 
 - `host`: name or address the clients connect to. The first time, the UI proposes the node FQDN.
 - `port`: UDP port, from 1024 to 65535.
-- `network`: private IPv4 network from /16 to /28. It must not overlap the cluster network or a node interface.
+- `network`: private IPv4 network from /16 to /28. The hub also takes the network next to it to link the nodes, so that pair must not overlap the cluster network or a node interface, and both halves must be private.
 - `auth_mode`: `certificate`, or `certificate_password` to also check the user domain password.
 - `user_domain`: required with `certificate_password`.
 - `totp_required`: refuse the accounts without an authenticator. Needs `certificate_password`.
 - `expose_samba`: open the ports of the Samba domain controller of the node, and push a route to it.
+- `expose_ssh`: accept SSH from the users. See [Where the packets can go](docs/network.md#where-the-packets-can-go).
 
-Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `user_domain_required`, `user_domain_not_found`, `totp_needs_password`.
+Validation errors: `invalid_network`, `network_not_allowed`, `network_overlap`, `link_not_private` (the network next to it is public, as with `192.168.0.0/16`), `user_domain_required`, `user_domain_not_found`, `totp_needs_password`, `hub_not_found`, `not_joined` (send the answer of add-spoke as join), `link_overlap` (the link network of the hub overlaps a network of this node), `accounts_exist` (a spoke has no users), `hub_has_spokes` (remove the other nodes before leaving the hub role or changing its network).
+
+Every configured instance is a hub unless it joins another one. The UI joins the other nodes in one save. From the command line, carry the request of the node to the hub, then the answer back:
+
+    csr=$(api-cli run request-spoke-certificate --agent module/roadwarrior2 | jq .csr)
+    join=$(api-cli run add-spoke --agent module/roadwarrior1 --data "{\"module_id\": \"roadwarrior2\", \"csr\": $csr}")
+    api-cli run configure-module --agent module/roadwarrior2 --data "{\"mode\": \"spoke\", \"hub\": \"roadwarrior1\", \"expose_samba\": true, \"join\": $join}"
+
+`add-spoke` signs only a request made by that instance: a request named after another one fails with `csr_mismatch`.
+
+`list-spokes` on the hub lists the nodes, what each one shares, read from the settings of the node, and the state of their link. `remove-spoke` with `{"module_id": "roadwarrior2"}` removes one.
 
 While accounts exist, `host`, `port`, `network` and `auth_mode` cannot change. The errors are `host_locked`, `port_locked`, `network_locked` and `auth_mode_locked`. Host, port and login prompt are written in every profile already sent, and the network in the HTTP route allowlists. Remove all the accounts to change them.
 
@@ -83,7 +99,7 @@ In password mode the profile asks for the user name and the password. The authen
 
 In certificate mode the profile alone gives access. Send it through a safe channel.
 
-The UI encrypts the profile and the authenticator secret for the browser: the core keeps task output in Redis for hours, and only ciphertext lands there. Called from `api-cli` without `public_key`, the actions return plain text.
+`download-client-config` and `enroll-totp` encrypt their output for the browser that sends a `public_key`, as the UI does: the core keeps task output in Redis for some hours, and only ciphertext lands there. Without `public_key`, the output is in plain text. Use that form only to troubleshoot: Redis replicates it to every node, so the client key or the TOTP secret stays readable there. Prefer the UI to hand a profile or a secret to a user.
 
 ## Clients
 
@@ -100,13 +116,13 @@ The VPN carries only the network of the VPN and the names of the node. NetworkMa
 
 OpenVPN Connect, OpenVPN GUI and Tunnelblick follow the server and need no change.
 
-The server needs OpenVPN 2.6 features for split DNS. Older clients still connect but may not use the VPN resolver.
+The server runs OpenVPN 2.7. Split DNS needs a 2.6 or newer client. Older clients still connect but may not use the VPN resolver.
 
 In password mode the client asks for the user name and the domain password. When the account has an authenticator, the server checks the password, then answers with an OpenVPN dynamic challenge (CRV1). The client opens a second prompt "Authenticator code" and connects again with the 6 digits. The code is never appended to the password. A pending challenge lasts 3 minutes and works once: a wrong code sends the user back to the password.
 
 NetworkManager, OpenVPN Connect, OpenVPN GUI and Tunnelblick handle the dynamic challenge. The `openvpn` command line client handles it with `auth-retry interact`, which the profile sets.
 
-The module was tested with the `openvpn` 2.6 command line client and its management interface, which is the path the graphical clients use.
+The module was tested with the `openvpn` 2.7 command line client and its management interface, which is the path the graphical clients use.
 
 ## Authenticator (TOTP)
 
@@ -149,11 +165,11 @@ The backup holds the settings, the PKI with the revocation list, the accounts, t
 
 The CA is the same, so the profiles already sent stay valid. They point to the old host until the host name points to the new node.
 
-On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. When the original is removed, the copy starts on its own: a restore or a move with "replace" ends that way. After a plain clone, remove the original or change the settings of the copy.
+On the same node as the original instance, the copy cannot take the same port and network. It stays stopped and logs the conflict. When the original is removed, the copy starts on its own: a restore or a move with "replace" ends that way. After a plain clone, remove the original or change the settings of the copy. A clone of a node of a hub does not reuse the join of its original: join it again. A node restored before its hub stays stopped and starts when the hub is configured.
 
 ## User interface
 
-The pages are Status, Accounts, Sessions, Settings and About. The UI ships in English, German, Spanish, Basque, French, Italian, Portuguese and Brazilian Portuguese.
+The pages are Status, Accounts, Sessions, Nodes, Settings and About. The Nodes page of a hub lists its nodes, with a search. On a node of a hub, Accounts, Sessions and Nodes stay in the menu but show no table: a button opens the same page on the hub. The UI ships in English, German, Spanish, Basque, French, Italian, Portuguese and Brazilian Portuguese.
 
 ## Uninstall
 

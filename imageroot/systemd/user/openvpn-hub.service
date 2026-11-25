@@ -1,0 +1,39 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Network namespace of a hub. The user tunnel and the site-to-site tunnel both live in it,
+# so the hub forwards between them with its own rules: the firewall of the node is not involved.
+# The user port is public, the site-to-site port listens on the cluster VPN address only.
+# The loopback of the node, where ldapproxy listens, is reached at 169.254.1.2 for password checks.
+
+[Unit]
+Description=Podman openvpn-hub.service
+Wants=openvpn-hub-server.service openvpn-hub-dns.service openvpn-s2s.service
+Before=openvpn-hub-server.service openvpn-hub-dns.service openvpn-s2s.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+Restart=always
+TimeoutStopSec=70
+Type=forking
+ExecStartPre=/bin/rm -f %t/openvpn-hub.pid %t/openvpn-hub.pod-id
+ExecStartPre=/usr/bin/podman pod create --infra-conmon-pidfile %t/openvpn-hub.pid \
+    --pod-id-file %t/openvpn-hub.pod-id \
+    --name openvpn-hub \
+    --replace \
+    --network=pasta:--map-host-loopback,169.254.1.2 \
+    --sysctl net.ipv4.ip_forward=1 \
+    --publish ${OVPN_PORT}:${OVPN_PORT}/udp \
+    --publish ${OVPN_VPN_IP}:${OVPN_S2S_PORT}:${OVPN_S2S_PORT}/udp
+ExecStart=/usr/bin/podman pod start --pod-id-file %t/openvpn-hub.pod-id
+ExecStop=/usr/bin/podman pod stop --ignore --pod-id-file %t/openvpn-hub.pod-id -t 10
+ExecStopPost=/usr/bin/podman pod rm --ignore -f --pod-id-file %t/openvpn-hub.pod-id
+PIDFile=%t/openvpn-hub.pid
+SyslogIdentifier=%u
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "remove-spoke input",
+    "$id": "http://schema.nethserver.org/roadwarrior/remove-spoke-input.json",
+    "description": "Remove a node from this hub",
+    "examples": [
+        {
+            "module_id": "roadwarrior2"
+        }
+    ],
+    "type": "object",
+    "properties": {
+        "module_id": {
+            "type": "string",
+            "pattern": "^roadwarrior[0-9]+$"
+        }
+    },
+    "required": [
+        "module_id"
+    ]
+}

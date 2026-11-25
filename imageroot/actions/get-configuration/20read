@@ -27,10 +27,18 @@ json.dump({
     "user_domain": conf["OVPN_USER_DOMAIN"],
     "totp_required": om.is_true(conf["OVPN_TOTP_REQUIRED"]),
     "expose_samba": om.is_true(conf["OVPN_EXPOSE_SAMBA"]),
+    "expose_ssh": om.is_true(conf["OVPN_EXPOSE_SSH"]),
+    "ssh_ports": os.environ.get("OVPN_SSH_PORTS", "").split(),
     "user_domains": agent.ldapproxy.Ldapproxy().get_domains_list(),
     "samba_available": samba is not None,
     "server_ip": server_ip,
     # Paste it into "Allow access from" of an HTTP route to keep the app for the VPN clients
-    "ip_allowlist": net.with_prefixlen,
+    "ip_allowlist": om.users_network() or net.with_prefixlen,
     "has_accounts": bool(om.load_accounts()),
+    "mode": om.mode(),
+    # A restore of the hub changes its module id: find it again by its uuid
+    "hub": om.current_hub(rdb) if om.mode() == "spoke" else "",
+    "hubs": om.list_hubs(rdb),
+    # Address of this node on the link with the hub
+    "spoke_ip": om.host_tun_ip(conf) if om.is_configured() else "",
 }, fp=sys.stdout)

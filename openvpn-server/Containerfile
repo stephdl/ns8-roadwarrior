@@ -8,6 +8,7 @@ RUN apk add --no-cache \
         openvpn \
         easy-rsa \
         dnsmasq \
+        nftables \
         python3 \
         py3-ldap3
 COPY entrypoint.sh /entrypoint.sh

@@ -11,16 +11,18 @@
             "auth_mode": "certificate_password",
             "user_domain": "example.org",
             "totp_required": false,
-            "expose_samba": true
+            "expose_samba": true,
+            "expose_ssh": false,
+            "mode": "hub"
+        },
+        {
+            "mode": "spoke",
+            "hub": "roadwarrior1",
+            "expose_samba": true,
+            "expose_ssh": false
         }
     ],
     "type": "object",
-    "required": [
-        "host",
-        "port",
-        "network",
-        "auth_mode"
-    ],
     "properties": {
         "host": {
             "type": "string",
@@ -58,6 +60,80 @@
         "expose_samba": {
             "type": "boolean",
             "description": "Open the samba DC of this node to the VPN clients"
+        },
+        "expose_ssh": {
+            "type": "boolean",
+            "description": "Open SSH of this node to the VPN clients"
+        },
+        "mode": {
+            "type": "string",
+            "enum": [
+                "hub",
+                "spoke"
+            ],
+            "default": "hub",
+            "description": "hub: the users reach this node and every node that joins this instance. spoke: this node joins a hub and has no users."
+        },
+        "hub": {
+            "type": "string",
+            "pattern": "^roadwarrior[0-9]+$",
+            "description": "Instance of the hub this node joins. Required with spoke."
+        },
+        "join": {
+            "type": "object",
+            "description": "Output of add-spoke of the hub. Without it a spoke keeps what it got last time from the same hub.",
+            "required": [
+                "hub",
+                "ip",
+                "rw_network",
+                "ca",
+                "cert"
+            ],
+            "properties": {
+                "hub": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string",
+                    "pattern": "^[0-9.]+/[0-9]+$"
+                },
+                "rw_network": {
+                    "type": "string",
+                    "pattern": "^[0-9.]+/[0-9]+$"
+                },
+                "ca": {
+                    "type": "string"
+                },
+                "cert": {
+                    "type": "string"
+                },
+                "hub_uuid": {
+                    "type": "string"
+                }
+            }
         }
+    },
+    "if": {
+        "properties": {
+            "mode": {
+                "const": "spoke"
+            }
+        },
+        "required": [
+            "mode"
+        ]
+    },
+    "then": {
+        "required": [
+            "hub"
+        ]
+    },
+    "else": {
+        "required": [
+            "host",
+            "port",
+            "network",
+            "auth_mode"
+        ]
     }
 }

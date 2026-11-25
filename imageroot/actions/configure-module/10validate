@@ -15,6 +15,40 @@ import agent.ldapproxy
 import ovpn_module as om
 
 request = json.load(sys.stdin)
+mode = request.get("mode", "hub")
+rdb = agent.redis_connect(use_replica=True)
+
+
+def overlaps_node(wanted):
+    """The cluster VPN and the networks of the node must stay reachable."""
+    taken = []
+    cluster_net = rdb.get("cluster/network")
+    if cluster_net:
+        taken.append(ipaddress.ip_network(cluster_net, strict=False))
+    addrs = json.loads(subprocess.run(["ip", "-j", "-4", "addr"], capture_output=True, text=True, check=True).stdout)
+    for iface in addrs:
+        if iface["ifname"] == os.environ.get("OVPN_TUN"):
+            continue
+        for info in iface.get("addr_info", []):
+            taken.append(ipaddress.ip_network(f"{info['local']}/{info['prefixlen']}", strict=False))
+    return any(wanted.overlaps(other) for other in taken)
+
+
+if mode == "spoke":
+    om.check_can_be_spoke()
+    join = request.get("join") or om.load_join()
+    # A clone drops the join it copied: it must join, not wait for a hub
+    if not join:
+        om.fail_validation("hub", request["hub"], "not_joined")
+    if request["hub"] not in [hub["module_id"] for hub in om.list_hubs(rdb)]:
+        om.fail_validation("hub", request["hub"], "hub_not_found")
+    # A restored hub has a new id: the uuid it gave still finds it
+    hub_ids = {join.get("hub")} | {h["module_id"] for h in om.list_hubs(rdb) if h["module_uuid"] == join.get("hub_uuid")}
+    if request["hub"] not in hub_ids:
+        om.fail_validation("hub", request["hub"], "not_joined")
+    if overlaps_node(ipaddress.ip_interface(join["ip"]).network):
+        om.fail_validation("hub", request["hub"], "link_overlap")
+    sys.exit(0)
 
 try:
     net, _ = om.network_parts(request["network"])
@@ -22,21 +56,16 @@ except ValueError:
     om.fail_validation("network", request["network"], "invalid_network")
 if net.version != 4 or not net.is_private or not 16 <= net.prefixlen <= 28:
     om.fail_validation("network", request["network"], "network_not_allowed")
-
-rdb = agent.redis_connect(use_replica=True)
-# The cluster VPN and the networks of the node must stay reachable
-taken = []
-cluster_net = rdb.get("cluster/network")
-if cluster_net:
-    taken.append(ipaddress.ip_network(cluster_net, strict=False))
-addrs = json.loads(subprocess.run(["ip", "-j", "-4", "addr"], capture_output=True, text=True, check=True).stdout)
-for iface in addrs:
-    if iface["ifname"] == os.environ.get("OVPN_TUN"):
-        continue
-    for info in iface.get("addr_info", []):
-        taken.append(ipaddress.ip_network(f"{info['local']}/{info['prefixlen']}", strict=False))
-if any(net.overlaps(other) for other in taken):
+# The hub also takes the network next to it for the link with the nodes
+link = om.s2s_networks(request["network"])
+if not link["s2s"].is_private:
+    # 192.168.0.0/16 has a public neighbour: 192.169.0.0/16
+    om.fail_validation("network", request["network"], "link_not_private")
+if overlaps_node(link["supernet"]):
     om.fail_validation("network", request["network"], "network_overlap")
+# The nodes keep their address of the link until they join again
+if request["network"] != om.settings()["OVPN_NETWORK"] and any(spoke != os.environ["MODULE_UUID"] for spoke in om.load_spokes()):
+    om.fail_validation("network", request["network"], "hub_has_spokes")
 
 # A running server of this instance holds its own port: that one is not a conflict
 own_port = om.server_running() and str(request["port"]) == os.environ.get("OVPN_PORT")

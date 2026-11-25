@@ -66,8 +66,9 @@
             @updatePage="tablePage = $event"
           >
             <template slot="empty-state">
+              <SpokeEmptyState v-if="hub" :hub="hub" page="accounts" />
               <NsEmptyState
-                v-if="!configured"
+                v-else-if="!configured"
                 :title="$t('status.not_configured')"
               >
                 <template #description>
@@ -528,6 +529,7 @@ import {
   PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 import ModuleTask from "@/mixins/moduleTask";
+import SpokeEmptyState from "@/components/SpokeEmptyState.vue";
 import { createSealKey, openSealed } from "@/lib/seal";
 import Download20 from "@carbon/icons-vue/es/download/20";
 import Password20 from "@carbon/icons-vue/es/password/20";
@@ -538,6 +540,7 @@ import Renew20 from "@carbon/icons-vue/es/renew/20";
 
 export default {
   name: "Accounts",
+  components: { SpokeEmptyState },
   mixins: [
     TaskService,
     IconService,
@@ -572,6 +575,7 @@ export default {
       },
       isShownHistoryModal: false,
       configured: false,
+      hub: "",
       authMode: "certificate_password",
       totpRequired: false,
       accounts: [],
@@ -680,6 +684,12 @@ export default {
       this.runModuleTask({
         action: "get-configuration",
         completed: (config) => {
+          if (config.mode === "spoke") {
+            // The users of a spoke connect to its hub
+            this.hub = config.hub;
+            this.loading.getConfiguration = false;
+            return;
+          }
           this.configured = config.configured;
           this.authMode = config.auth_mode;
           this.totpRequired = config.totp_required;

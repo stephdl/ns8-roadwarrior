@@ -44,9 +44,9 @@ buildah add "${container}" imageroot /imageroot
 buildah add "${container}" ui/dist /ui
 # The UDP port is a setting of the module, so no port is taken from the node allocator
 buildah config --entrypoint=/ \
-    --label="org.nethserver.authorizations=node:tunadm,portsadm cluster:accountconsumer" \
+    --label="org.nethserver.authorizations=node:tunadm,portsadm,reader cluster:accountconsumer traefik@any:reader" \
     --label="org.nethserver.tcp-ports-demand=0" \
-    --label="org.nethserver.udp-ports-demand=0" \
+    --label="org.nethserver.udp-ports-demand=1" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.max-per-node=1" \
     --label="org.nethserver.images=${repobase}/roadwarrior-server:${IMAGETAG:-latest}" \

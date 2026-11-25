@@ -1,0 +1,48 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "add-spoke output",
+    "$id": "http://schema.nethserver.org/roadwarrior/add-spoke-output.json",
+    "description": "Pass it as join to the configure-module of the node",
+    "examples": [
+        {
+            "hub": "roadwarrior1",
+            "hub_uuid": "e162b837-b396-4fa9-aaf9-7269fd07e0b6",
+            "ip": "10.8.1.3/23",
+            "rw_network": "10.8.0.0/24",
+            "ca": "-----BEGIN CERTIFICATE-----\n...",
+            "cert": "-----BEGIN CERTIFICATE-----\n..."
+        }
+    ],
+    "type": "object",
+    "required": [
+        "hub",
+        "hub_uuid",
+        "ip",
+        "rw_network",
+        "ca",
+        "cert"
+    ],
+    "properties": {
+        "hub": {
+            "type": "string"
+        },
+        "hub_uuid": {
+            "type": "string",
+            "description": "Finds the hub again after a restore changed its id"
+        },
+        "ip": {
+            "type": "string",
+            "description": "Address of the node tun, with the prefix that also covers the users network"
+        },
+        "rw_network": {
+            "type": "string",
+            "description": "Network of the users of the hub"
+        },
+        "ca": {
+            "type": "string"
+        },
+        "cert": {
+            "type": "string"
+        }
+    }
+}
