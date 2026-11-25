@@ -504,13 +504,16 @@ export default {
               csr: request.csr,
             },
             completed: (join) => {
-              this.saveConfiguration({
-                mode: "spoke",
-                hub: this.hub,
-                expose_samba: this.exposeSamba,
-                expose_ssh: this.exposeSsh,
-                join,
-              });
+              this.saveConfiguration(
+                {
+                  mode: "spoke",
+                  hub: this.hub,
+                  expose_samba: this.exposeSamba,
+                  expose_ssh: this.exposeSsh,
+                  join,
+                },
+                this.leaveHub
+              );
             },
             validationFailed: (errors) => {
               this.configureFailed(
@@ -521,11 +524,24 @@ export default {
             failed: this.configureFailed,
           });
         },
+        validationFailed: this.configureModuleValidationFailed,
         aborted: this.configureFailed,
         failed: this.configureFailed,
       });
     },
-    saveConfiguration(data) {
+    leaveHub(validationErrors) {
+      // The hub signed already: drop this node there so it does not list a node that never joined
+      this.runModuleTask({
+        instance: this.hub,
+        action: "remove-spoke",
+        data: { module_id: this.instanceName },
+        completed: () => {},
+        aborted: () => {},
+        failed: () => {},
+      });
+      this.configureModuleValidationFailed(validationErrors);
+    },
+    saveConfiguration(data, validationFailed) {
       this.runModuleTask({
         action: "configure-module",
         data,
@@ -538,7 +554,8 @@ export default {
           this.loading.configureModule = false;
           this.getConfiguration();
         },
-        validationFailed: this.configureModuleValidationFailed,
+        validationFailed:
+          validationFailed || this.configureModuleValidationFailed,
         aborted: this.configureFailed,
         failed: this.configureFailed,
       });

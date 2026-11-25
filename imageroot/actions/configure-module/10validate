@@ -18,15 +18,9 @@ request = json.load(sys.stdin)
 mode = request.get("mode", "hub")
 rdb = agent.redis_connect(use_replica=True)
 
-# The other nodes of a hub reach its users: they must not lose them silently
-if om.mode() == "hub" and mode == "spoke":
-    if any(spoke != os.environ["MODULE_UUID"] for spoke in om.load_spokes()):
-        om.fail_validation("mode", mode, "hub_has_spokes")
 
 if mode == "spoke":
-    # A spoke has no users: their profiles would stop working
-    if om.load_accounts():
-        om.fail_validation("mode", mode, "accounts_exist")
+    om.check_can_be_spoke()
     if request["hub"] not in [hub["module_id"] for hub in om.list_hubs(rdb)]:
         om.fail_validation("hub", request["hub"], "hub_not_found")
     join = request.get("join") or om.load_join()

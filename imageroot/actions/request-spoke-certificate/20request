@@ -11,4 +11,5 @@ import json
 import sys
 import ovpn_module as om
 
+om.check_can_be_spoke()
 json.dump({"csr": om.spoke_key_and_csr()}, fp=sys.stdout)

@@ -799,6 +799,16 @@ def fail_validation(field, value, error):
     sys.exit(2)
 
 
+def check_can_be_spoke():
+    """Refuse the spoke role before the hub registers this node, not after."""
+    # The other nodes of a hub reach its users: they must not lose them silently
+    if mode() == "hub" and any(spoke != os.environ["MODULE_UUID"] for spoke in load_spokes()):
+        fail_validation("mode", "spoke", "hub_has_spokes")
+    # A spoke has no users: their profiles would stop working
+    if load_accounts():
+        fail_validation("mode", "spoke", "accounts_exist")
+
+
 def require_server():
     # The users of a spoke connect to its hub: their accounts live there
     if mode() == "spoke":
