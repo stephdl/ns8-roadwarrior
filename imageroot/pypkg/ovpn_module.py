@@ -204,7 +204,7 @@ def list_hubs(rdb):
             hubs.append({"module_id": module_id, "module_uuid": env.get("MODULE_UUID", ""),
                          "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", ""),
                          # Empty until that hub is configured
-                         "network": env.get("OVPN_NETWORK", "") if env.get("OVPN_HOST") else "",
+                         "network": settings(env)["OVPN_NETWORK"] if env.get("OVPN_HOST") else "",
                          "node_name": rdb.get(f"node/{env.get('NODE_ID')}/ui_name") or "",
                          "leader": env.get("NODE_ID") == leader_id})
     return sorted(hubs, key=lambda h: h["module_id"])
@@ -256,10 +256,15 @@ def connected_spokes():
 def leader_link(rdb):
     """Address of the leader node on the link of this hub and whether that link is up, ("", False) when it did not join."""
     leader_id = rdb.hget("cluster/environment", "NODE_ID")
-    for uuid, info in current_spokes(rdb).items():
-        if info["node_id"] == leader_id:
-            return info["ip"], uuid in connected_spokes()
-    return "", False
+    entries = [(uuid, info) for uuid, info in current_spokes(rdb).items() if info["node_id"] == leader_id]
+    if not entries:
+        return "", False
+    connected = connected_spokes()
+    # A stale entry of the leader, left by a restore with a new uuid, must not hide the live one
+    for uuid, info in entries:
+        if uuid in connected:
+            return info["ip"], True
+    return entries[0][1]["ip"], False
 
 
 def current_hub(rdb):
