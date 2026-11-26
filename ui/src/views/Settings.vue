@@ -42,25 +42,30 @@
             class="maxwidth"
             >{{ ipAllowlist }}</NsCodeSnippet
           >
-          <template v-if="clusterAdminUrl">
-            <p class="mg-top maxwidth">
-              {{ $t("settings.cluster_admin_through_vpn") }}
-            </p>
-            <NsCodeSnippet
-              :copyTooltip="core.$t('common.copy_to_clipboard')"
-              :copy-feedback="core.$t('common.copied_to_clipboard')"
-              :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-              :wrap-text="true"
-              :moreText="core.$t('common.show_more')"
-              :lessText="core.$t('common.show_less')"
-              hideExpandButton
-              class="maxwidth"
-              >{{ clusterAdminUrl }}</NsCodeSnippet
-            >
-          </template>
-          <p v-else-if="mode === 'hub'" class="mg-top maxwidth">
-            {{ $t("settings.cluster_admin_leader_not_joined") }}
-          </p>
+          <NsInlineNotification
+            v-if="clusterAdminUrl || mode === 'hub'"
+            kind="warning"
+            :title="$t('settings.cluster_admin_title')"
+            :description="
+              clusterAdminUrl
+                ? $t('settings.cluster_admin_through_vpn')
+                : $t('settings.cluster_admin_leader_not_joined')
+            "
+            :showCloseButton="false"
+            class="mg-top maxwidth"
+          />
+          <NsCodeSnippet
+            v-if="clusterAdminUrl"
+            :copyTooltip="core.$t('common.copy_to_clipboard')"
+            :copy-feedback="core.$t('common.copied_to_clipboard')"
+            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
+            :wrap-text="true"
+            :moreText="core.$t('common.show_more')"
+            :lessText="core.$t('common.show_less')"
+            hideExpandButton
+            class="maxwidth"
+            >{{ clusterAdminUrl }}</NsCodeSnippet
+          >
         </cv-tile>
       </cv-column>
     </cv-row>
