@@ -185,6 +185,8 @@
     "port_range": "Verwenden Sie einen Port zwischen 1024 und 65535",
     "network": "VPN-Netzwerk",
     "network_tooltip": "Die für die VPN-Clients reservierten HTTP-Routen verwenden dieses Netzwerk. Entfernen Sie alle Konten, um es zu ändern.",
+    "network_shared_title": "Netzwerk von einem anderen Hub verwendet",
+    "network_shared_description": "Der Hub {hub} verwendet dieses Netzwerk ebenfalls. Ein Benutzer kann nicht beide VPNs gleichzeitig öffnen, und eine Zulassungsliste kann ihre Clients nicht unterscheiden. Wählen Sie besser ein anderes Netzwerk.",
     "network_locked": "Entfernen Sie alle Konten, um das Netzwerk zu ändern",
     "network_helper": "Privates IPv4-Netzwerk der Clients, von /16 bis /28",
     "invalid_network": "Ungültiges Netzwerk, verwenden Sie die Form 10.8.0.0/24",

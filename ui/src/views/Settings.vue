@@ -172,6 +172,18 @@
                   {{ $t("settings.network_tooltip") }}
                 </template>
               </NsTextInput>
+              <NsInlineNotification
+                v-if="networkSharedWith"
+                kind="warning"
+                :title="$t('settings.network_shared_title')"
+                :description="
+                  $t('settings.network_shared_description', {
+                    hub: networkSharedWith,
+                  })
+                "
+                :showCloseButton="false"
+                class="maxwidth"
+              />
               <label class="bx--label">{{ $t("settings.auth_mode") }}</label>
               <p v-if="hasAccounts" class="bx--form__helper-text mg-bottom-sm">
                 {{ $t("settings.auth_mode_locked") }}
@@ -372,6 +384,25 @@ export default {
     stillLoading() {
       return this.loading.getConfiguration || this.loading.configureModule;
     },
+    // Another hub whose network and link overlap this one: allowed, but the users cannot tell the two VPNs apart
+    networkSharedWith() {
+      const wanted = this.supernet(this.network);
+      if (!wanted) {
+        return "";
+      }
+      const other = this.hubs.find((hub) => {
+        const net = this.supernet(hub.network);
+        if (!net) {
+          return false;
+        }
+        const prefix = Math.min(wanted.prefix, net.prefix);
+        return (
+          this.maskAddress(wanted.address, prefix) ===
+          this.maskAddress(net.address, prefix)
+        );
+      });
+      return other ? other.module_id : "";
+    },
     hubOptions() {
       return this.hubs.map((hub) => {
         const node = this.$t(
@@ -410,6 +441,26 @@ export default {
     next();
   },
   methods: {
+    // A hub takes its network and the one next to it: {address, prefix} of that pair, null if invalid
+    supernet(cidr) {
+      const match =
+        /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(
+          cidr || ""
+        );
+      if (!match) {
+        return null;
+      }
+      const bytes = match.slice(1, 5).map(Number);
+      const prefix = Number(match[5]);
+      if (bytes.some((b) => b > 255) || prefix < 1 || prefix > 32) {
+        return null;
+      }
+      const address = bytes.reduce((acc, b) => acc * 256 + b, 0);
+      return { address, prefix: prefix - 1 };
+    },
+    maskAddress(address, prefix) {
+      return Math.floor(address / 2 ** (32 - prefix));
+    },
     goToHttpRoutes() {
       this.core.$router.push("/settings/http-routes");
     },

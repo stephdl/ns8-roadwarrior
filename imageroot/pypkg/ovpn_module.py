@@ -194,7 +194,7 @@ def node_vpn_ip(rdb, node_id):
 
 
 def list_hubs(rdb):
-    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "node_name", "host", "leader"}]."""
+    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "node_name", "host", "network", "leader"}]."""
     hubs = []
     leader_id = rdb.hget("cluster/environment", "NODE_ID") or ""
     for key in rdb.scan_iter("module/roadwarrior*/environment"):
@@ -203,6 +203,8 @@ def list_hubs(rdb):
         if env.get("OVPN_MODE") == "hub" and module_id != os.environ.get("MODULE_ID"):
             hubs.append({"module_id": module_id, "module_uuid": env.get("MODULE_UUID", ""),
                          "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", ""),
+                         # Empty until that hub is configured
+                         "network": env.get("OVPN_NETWORK", "") if env.get("OVPN_HOST") else "",
                          "node_name": rdb.get(f"node/{env.get('NODE_ID')}/ui_name") or "",
                          "leader": env.get("NODE_ID") == leader_id})
     return sorted(hubs, key=lambda h: h["module_id"])

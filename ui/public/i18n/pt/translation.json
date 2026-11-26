@@ -185,6 +185,8 @@
     "port_range": "Utilize uma porta entre 1024 e 65535",
     "network": "Rede VPN",
     "network_tooltip": "As rotas HTTP reservadas aos clientes VPN utilizam esta rede. Remova todas as contas para a alterar.",
+    "network_shared_title": "Rede usada por outro hub",
+    "network_shared_description": "O hub {hub} também usa esta rede. Um utilizador não pode abrir as duas VPN ao mesmo tempo, e uma lista de acesso não distingue os seus clientes. Prefira outra rede.",
     "network_locked": "Remova todas as contas para alterar a rede",
     "network_helper": "Rede IPv4 privada dos clientes, de /16 a /28",
     "invalid_network": "Rede inválida, utilize o formato 10.8.0.0/24",

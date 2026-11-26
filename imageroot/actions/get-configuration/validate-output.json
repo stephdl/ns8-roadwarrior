@@ -140,6 +140,10 @@
                     "host": {
                         "type": "string"
                     },
+                    "network": {
+                        "description": "VPN network of that hub, empty until it is configured",
+                        "type": "string"
+                    },
                     "module_uuid": {
                         "type": "string"
                     },

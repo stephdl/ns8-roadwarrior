@@ -185,6 +185,8 @@
     "port_range": "Erabili 1024 eta 65535 arteko ataka bat",
     "network": "VPN sarea",
     "network_tooltip": "VPN bezeroentzat gordetako HTTP bideek sare hau erabiltzen dute. Kendu kontu guztiak aldatzeko.",
+    "network_shared_title": "Beste hub batek erabiltzen duen sarea",
+    "network_shared_description": "{hub} hubak ere sare hau erabiltzen du. Erabiltzaile batek ezin ditu bi VPNak batera ireki, eta baimen-zerrenda batek ezin ditu haien bezeroak bereizi. Hobe beste sare bat.",
     "network_locked": "Kendu kontu guztiak sarea aldatzeko",
     "network_helper": "Bezeroen IPv4 sare pribatua, /16tik /28ra",
     "invalid_network": "Sare baliogabea, erabili 10.8.0.0/24 formatua",
