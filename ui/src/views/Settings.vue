@@ -43,7 +43,7 @@
                 >
               </cv-column>
               <cv-column
-                v-if="clusterAdminUrl || mode === 'hub'"
+                v-if="clusterAdminUrl || savedMode === 'hub'"
                 :lg="8"
                 class="snippet-column"
               >
@@ -105,7 +105,9 @@
               {{ $t("settings.mode_" + mode + "_helper") }}
             </p>
             <template v-if="mode === 'spoke'">
+              <!-- Keys keep Vue from reusing this box for the user domain, with the hub label still typed in -->
               <NsComboBox
+                key="hub"
                 v-model="hub"
                 :options="hubOptions"
                 :autoFilter="true"
@@ -190,6 +192,7 @@
               </cv-radio-group>
               <template v-if="authMode === 'certificate_password'">
                 <NsComboBox
+                  key="user_domain"
                   v-model="userDomain"
                   :options="userDomainOptions"
                   :autoFilter="true"
@@ -343,6 +346,8 @@ export default {
       leaderLinkDown: false,
       hasAccounts: false,
       mode: "hub",
+      // The note about cluster-admin follows the saved role, not the radio being edited
+      savedMode: "hub",
       hub: "",
       hubs: [],
       loading: {
@@ -445,6 +450,7 @@ export default {
       this.leaderLinkDown = config.leader_link_down || false;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
+      this.savedMode = config.mode;
       this.hubs = config.hubs;
       this.$nextTick(() => {
         this.hub = config.hub;
