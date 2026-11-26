@@ -22,50 +22,53 @@
     <cv-row v-if="configured">
       <cv-column>
         <cv-tile light>
-          <NsInlineNotification
-            kind="info"
-            :title="$t('settings.restrict_apps_title')"
-            :description="$t('settings.restrict_apps_description')"
-            :actionLabel="$t('settings.go_to_http_routes')"
-            @action="goToHttpRoutes"
-            :showCloseButton="false"
-            class="mg-bottom-sm maxwidth"
-          />
-          <NsCodeSnippet
-            :copyTooltip="core.$t('common.copy_to_clipboard')"
-            :copy-feedback="core.$t('common.copied_to_clipboard')"
-            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-            :wrap-text="true"
-            :moreText="core.$t('common.show_more')"
-            :lessText="core.$t('common.show_less')"
-            hideExpandButton
-            class="maxwidth"
-            >{{ ipAllowlist }}</NsCodeSnippet
-          >
-          <NsInlineNotification
-            v-if="clusterAdminUrl || mode === 'hub'"
-            kind="warning"
-            :title="$t('settings.cluster_admin_title')"
-            :description="
-              clusterAdminUrl
-                ? $t('settings.cluster_admin_through_vpn')
-                : $t('settings.cluster_admin_leader_not_joined')
-            "
-            :showCloseButton="false"
-            class="mg-top maxwidth"
-          />
-          <NsCodeSnippet
-            v-if="clusterAdminUrl"
-            :copyTooltip="core.$t('common.copy_to_clipboard')"
-            :copy-feedback="core.$t('common.copied_to_clipboard')"
-            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-            :wrap-text="true"
-            :moreText="core.$t('common.show_more')"
-            :lessText="core.$t('common.show_less')"
-            hideExpandButton
-            class="maxwidth"
-            >{{ clusterAdminUrl }}</NsCodeSnippet
-          >
+          <cv-grid full-width class="no-padding">
+            <cv-row>
+              <cv-column :lg="8" class="snippet-column">
+                <NsInlineNotification
+                  kind="info"
+                  :title="$t('settings.restrict_apps_title')"
+                  :description="$t('settings.restrict_apps_description')"
+                  :actionLabel="$t('settings.go_to_http_routes')"
+                  @action="goToHttpRoutes"
+                  :showCloseButton="false"
+                  class="mg-bottom-xs"
+                />
+                <cv-code-snippet
+                  kind="oneline"
+                  :feedback-aria-label="core.$t('common.copy_to_clipboard')"
+                  :copy-feedback="core.$t('common.copied_to_clipboard')"
+                  class="mg-bottom-sm"
+                  >{{ ipAllowlist }}</cv-code-snippet
+                >
+              </cv-column>
+              <cv-column
+                v-if="clusterAdminUrl || mode === 'hub'"
+                :lg="8"
+                class="snippet-column"
+              >
+                <NsInlineNotification
+                  kind="warning"
+                  :title="$t('settings.cluster_admin_title')"
+                  :description="
+                    clusterAdminUrl
+                      ? $t('settings.cluster_admin_through_vpn')
+                      : $t('settings.cluster_admin_leader_not_joined')
+                  "
+                  :showCloseButton="false"
+                  class="mg-bottom-xs"
+                />
+                <cv-code-snippet
+                  v-if="clusterAdminUrl"
+                  kind="oneline"
+                  :feedback-aria-label="core.$t('common.copy_to_clipboard')"
+                  :copy-feedback="core.$t('common.copied_to_clipboard')"
+                  class="mg-bottom-sm"
+                  >{{ clusterAdminUrl }}</cv-code-snippet
+                >
+              </cv-column>
+            </cv-row>
+          </cv-grid>
         </cv-tile>
       </cv-column>
     </cv-row>
@@ -601,9 +604,36 @@ export default {
   margin-bottom: $spacing-04;
 }
 
-.mg-top {
-  margin-top: $spacing-06;
-  margin-bottom: $spacing-04;
+.mg-bottom-xs {
+  margin-bottom: $spacing-03;
+}
+
+.no-padding {
+  padding: 0;
+  // Keeps the lines short on wide screens, close to the width of the form below
+  max-width: 80rem;
+  margin-left: 0;
+}
+
+// Side by side, the snippets line up under notifications of the same height
+.snippet-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.snippet-column .bx--inline-notification {
+  flex-grow: 1;
+  max-width: none;
+  align-items: flex-start;
+}
+
+.snippet-column .bx--snippet {
+  max-width: none;
+}
+
+// The title stays above the text in both notifications, whatever the width
+.snippet-column ::v-deep .bx--inline-notification__text-wrapper {
+  flex-direction: column;
 }
 
 .maxwidth {
