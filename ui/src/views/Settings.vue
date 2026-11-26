@@ -456,7 +456,10 @@ export default {
         this.hub = config.hub;
       });
       this.loading.getConfiguration = false;
-      this.focusElement(this.mode === "spoke" ? "hub" : "host");
+      // Focus opens the hub list over the form: only guide the first configuration
+      if (!this.configured) {
+        this.focusElement(this.mode === "spoke" ? "hub" : "host");
+      }
     },
     validateConfigureModule() {
       this.clearErrors(this);
