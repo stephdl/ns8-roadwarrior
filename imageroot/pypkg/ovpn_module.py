@@ -233,16 +233,31 @@ def current_spokes(rdb):
     return spokes
 
 
-def leader_link_ip(rdb):
-    """Address of the leader node on the link, empty when it is not known from here."""
+def connected_spokes():
+    """{spoke uuid: connected since} for the nodes whose link is up."""
+    connected = {}
+    # Status file of the site-to-site server, CLIENT LIST section: name,address,received,sent,since
+    proc = podman_exec("cat", "/etc/openvpn/run/s2s-status.log", container=S2S_CONTAINER, check=False)
+    section = False
+    for line in proc.stdout.splitlines():
+        if line.startswith("Common Name,"):
+            section = True
+        elif line.startswith("ROUTING TABLE"):
+            section = False
+        elif section:
+            fields = line.split(",")
+            if len(fields) >= 5:
+                connected[fields[0]] = fields[4]
+    return connected
+
+
+def leader_link(rdb):
+    """Address of the leader node on the link of this hub and whether that link is up, ("", False) when it did not join."""
     leader_id = rdb.hget("cluster/environment", "NODE_ID")
-    if mode() == "spoke":
-        # A spoke knows only its own address: the list of the nodes lives on the hub
-        return os.environ.get("OVPN_SPOKE_IP", "").split("/")[0] if os.environ["NODE_ID"] == leader_id else ""
-    for info in current_spokes(rdb).values():
+    for uuid, info in current_spokes(rdb).items():
         if info["node_id"] == leader_id:
-            return info["ip"]
-    return ""
+            return info["ip"], uuid in connected_spokes()
+    return "", False
 
 
 def current_hub(rdb):

@@ -14,6 +14,7 @@ import agent.ldapproxy
 import ovpn_module as om
 
 rdb = agent.redis_connect(use_replica=True)
+leader_ip, leader_up = om.leader_link(rdb) if om.mode() == "hub" and om.is_configured() else ("", False)
 conf = om.settings()
 net, server_ip = om.network_parts(conf["OVPN_NETWORK"])
 samba = om.samba_on_node(rdb, os.environ["NODE_ID"])
@@ -41,6 +42,7 @@ json.dump({
     "hubs": om.list_hubs(rdb),
     # Address of this node on the link with the hub
     "spoke_ip": om.host_tun_ip(conf) if om.is_configured() else "",
-    # cluster-admin runs on the leader: through the VPN it answers on the link address of that node
-    "cluster_admin_url": f"https://{leader_ip}/cluster-admin/" if (leader_ip := om.leader_link_ip(rdb)) and om.is_configured() else "",
+    # cluster-admin runs on the leader: through the VPN it answers on the link address of that node, while its link is up
+    "cluster_admin_url": f"https://{leader_ip}/cluster-admin/" if leader_up else "",
+    "leader_link_down": bool(leader_ip) and not leader_up,
 }, fp=sys.stdout)

@@ -26,7 +26,8 @@
             "hub": "",
             "hubs": [],
             "spoke_ip": "",
-            "cluster_admin_url": "https://10.8.1.2/cluster-admin/"
+            "cluster_admin_url": "https://10.8.1.2/cluster-admin/",
+            "leader_link_down": false
         }
     ],
     "type": "object",
@@ -118,8 +119,12 @@
             "type": "string"
         },
         "cluster_admin_url": {
-            "description": "cluster-admin through the VPN, on the link address of the leader. Empty when the leader is not a node of this hub",
+            "description": "cluster-admin through the VPN, on the link address of the leader. Empty when the leader is not a node of this hub or its link is down",
             "type": "string"
+        },
+        "leader_link_down": {
+            "description": "The leader is a node of this hub but its link is down",
+            "type": "boolean"
         },
         "hubs": {
             "type": "array",

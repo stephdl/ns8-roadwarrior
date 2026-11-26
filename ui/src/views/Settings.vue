@@ -53,6 +53,8 @@
                   :description="
                     clusterAdminUrl
                       ? $t('settings.cluster_admin_through_vpn')
+                      : leaderLinkDown
+                      ? $t('settings.cluster_admin_leader_link_down')
                       : $t('settings.cluster_admin_leader_not_joined')
                   "
                   :showCloseButton="false"
@@ -338,6 +340,7 @@ export default {
       sambaAvailable: false,
       ipAllowlist: "",
       clusterAdminUrl: "",
+      leaderLinkDown: false,
       hasAccounts: false,
       mode: "hub",
       hub: "",
@@ -439,6 +442,7 @@ export default {
       this.sshPorts = config.ssh_ports || [];
       this.ipAllowlist = config.ip_allowlist;
       this.clusterAdminUrl = config.cluster_admin_url || "";
+      this.leaderLinkDown = config.leader_link_down || false;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
       this.hubs = config.hubs;
