@@ -218,6 +218,8 @@
     "restrict_apps_title": "Riserva un'app web ai client VPN",
     "restrict_apps_description": "Incolla questa rete in \"Consenti l'accesso da\" della rotta HTTP dell'app. Solo i client di questa VPN la raggiungono allora.",
     "go_to_http_routes": "Vai alle rotte HTTP",
+    "cluster_admin_through_vpn": "Tramite la VPN, cluster-admin si apre a questo indirizzo. Incolla la stessa rete in \"Consenti l'accesso da\" della rotta cluster-admin per riservarlo ai client della VPN. Il browser segnala il certificato: non è fatto per un indirizzo IP.",
+    "cluster_admin_leader_not_joined": "Il nodo leader non è un nodo di questo hub: cluster-admin non può aprirsi tramite la VPN.",
     "mode": "Ruolo di questo nodo",
     "mode_hub": "Hub",
     "mode_spoke": "Nodo di un hub",

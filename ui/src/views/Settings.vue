@@ -42,6 +42,25 @@
             class="maxwidth"
             >{{ ipAllowlist }}</NsCodeSnippet
           >
+          <template v-if="clusterAdminUrl">
+            <p class="mg-top maxwidth">
+              {{ $t("settings.cluster_admin_through_vpn") }}
+            </p>
+            <NsCodeSnippet
+              :copyTooltip="core.$t('common.copy_to_clipboard')"
+              :copy-feedback="core.$t('common.copied_to_clipboard')"
+              :feedback-aria-label="core.$t('common.copied_to_clipboard')"
+              :wrap-text="true"
+              :moreText="core.$t('common.show_more')"
+              :lessText="core.$t('common.show_less')"
+              hideExpandButton
+              class="maxwidth"
+              >{{ clusterAdminUrl }}</NsCodeSnippet
+            >
+          </template>
+          <p v-else-if="mode === 'hub'" class="mg-top maxwidth">
+            {{ $t("settings.cluster_admin_leader_not_joined") }}
+          </p>
         </cv-tile>
       </cv-column>
     </cv-row>
@@ -310,6 +329,7 @@ export default {
       sshPorts: [],
       sambaAvailable: false,
       ipAllowlist: "",
+      clusterAdminUrl: "",
       hasAccounts: false,
       mode: "hub",
       hub: "",
@@ -410,6 +430,7 @@ export default {
       this.exposeSsh = config.expose_ssh;
       this.sshPorts = config.ssh_ports || [];
       this.ipAllowlist = config.ip_allowlist;
+      this.clusterAdminUrl = config.cluster_admin_url || "";
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
       this.hubs = config.hubs;
@@ -572,6 +593,11 @@ export default {
 }
 
 .mg-bottom-sm {
+  margin-bottom: $spacing-04;
+}
+
+.mg-top {
+  margin-top: $spacing-06;
   margin-bottom: $spacing-04;
 }
 

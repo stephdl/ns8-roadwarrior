@@ -218,6 +218,8 @@
     "restrict_apps_title": "Eine Web-App für die VPN-Clients vorbehalten",
     "restrict_apps_description": "Fügen Sie dieses Netzwerk in \"Anfragen erlauben von\" der HTTP-Route der App ein. Nur die Clients dieses VPN erreichen sie dann.",
     "go_to_http_routes": "Zu den HTTP-Routen",
+    "cluster_admin_through_vpn": "Über das VPN öffnet sich cluster-admin unter dieser Adresse. Fügen Sie dasselbe Netzwerk unter \"Anfragen erlauben von\" der Route cluster-admin ein, um es den VPN-Clients vorzubehalten. Der Browser warnt vor dem Zertifikat: Es ist nicht für eine IP-Adresse ausgestellt.",
+    "cluster_admin_leader_not_joined": "Der leader-Knoten ist kein Knoten dieses Hubs: cluster-admin kann nicht über das VPN geöffnet werden.",
     "mode": "Rolle dieses Knotens",
     "mode_hub": "Hub",
     "mode_spoke": "Knoten eines Hubs",

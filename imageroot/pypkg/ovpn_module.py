@@ -233,6 +233,18 @@ def current_spokes(rdb):
     return spokes
 
 
+def leader_link_ip(rdb):
+    """Address of the leader node on the link, empty when it is not known from here."""
+    leader_id = rdb.hget("cluster/environment", "NODE_ID")
+    if mode() == "spoke":
+        # A spoke knows only its own address: the list of the nodes lives on the hub
+        return os.environ.get("OVPN_SPOKE_IP", "").split("/")[0] if os.environ["NODE_ID"] == leader_id else ""
+    for info in current_spokes(rdb).values():
+        if info["node_id"] == leader_id:
+            return info["ip"]
+    return ""
+
+
 def current_hub(rdb):
     """Module id of the hub this node joined, found again by its uuid after a restore of the hub."""
     hub_uuid = load_join().get("hub_uuid", "")

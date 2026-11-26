@@ -218,6 +218,8 @@
     "restrict_apps_title": "Keep a web app for the VPN clients",
     "restrict_apps_description": "Paste this network in \"Allow access from\" of the HTTP route of the app. Only the clients of this VPN reach it then.",
     "go_to_http_routes": "Go to HTTP routes",
+    "cluster_admin_through_vpn": "Through the VPN, cluster-admin opens at this address. Paste the same network in \"Allow access from\" of the cluster-admin route to keep it for the VPN clients. The browser warns about the certificate: it is not made for an IP address.",
+    "cluster_admin_leader_not_joined": "The leader node is not a node of this hub: cluster-admin cannot open through the VPN.",
     "mode": "Role of this node",
     "mode_hub": "Hub",
     "mode_spoke": "Node of a hub",

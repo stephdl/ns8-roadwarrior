@@ -218,6 +218,8 @@
     "restrict_apps_title": "Gorde web aplikazio bat VPN bezeroentzat",
     "restrict_apps_description": "Itsatsi sare hau aplikazioaren HTTP bideko \"Restrict access from\" eremuan. Orduan VPN honetako bezeroek bakarrik sartzen dira.",
     "go_to_http_routes": "Joan HTTP bideetara",
+    "cluster_admin_through_vpn": "VPNaren bidez, cluster-admin helbide honetan irekitzen da. Itsatsi sare bera cluster-admin bidearen \"Restrict access from\" eremuan, VPNko bezeroentzat gordetzeko. Nabigatzaileak ziurtagiriaz ohartaraziko du: ez dago IP helbide baterako egina.",
+    "cluster_admin_leader_not_joined": "Leader nodoa ez da hub honen nodo bat: cluster-admin ezin da VPNaren bidez ireki.",
     "mode": "Nodo honen rola",
     "mode_hub": "Hub-a",
     "mode_spoke": "Hub baten nodoa",
