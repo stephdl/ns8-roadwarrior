@@ -194,7 +194,7 @@ def node_vpn_ip(rdb, node_id):
 
 
 def list_hubs(rdb):
-    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "node_name", "host", "leader"}]."""
+    """Hubs of the cluster a node can join: [{"module_id", "module_uuid", "node_id", "node_name", "host", "network", "leader"}]."""
     hubs = []
     leader_id = rdb.hget("cluster/environment", "NODE_ID") or ""
     for key in rdb.scan_iter("module/roadwarrior*/environment"):
@@ -203,6 +203,8 @@ def list_hubs(rdb):
         if env.get("OVPN_MODE") == "hub" and module_id != os.environ.get("MODULE_ID"):
             hubs.append({"module_id": module_id, "module_uuid": env.get("MODULE_UUID", ""),
                          "node_id": env.get("NODE_ID", ""), "host": env.get("OVPN_HOST", ""),
+                         # Empty until that hub is configured
+                         "network": settings(env)["OVPN_NETWORK"] if env.get("OVPN_HOST") else "",
                          "node_name": rdb.get(f"node/{env.get('NODE_ID')}/ui_name") or "",
                          "leader": env.get("NODE_ID") == leader_id})
     return sorted(hubs, key=lambda h: h["module_id"])
@@ -231,6 +233,38 @@ def current_spokes(rdb):
         env = rdb.hmget(f"module/{info['module_id']}/environment", "OVPN_EXPOSE_SAMBA", "OVPN_EXPOSE_SSH")
         info["expose_samba"], info["expose_ssh"] = is_true(env[0]), is_true(env[1])
     return spokes
+
+
+def connected_spokes():
+    """{spoke uuid: connected since} for the nodes whose link is up."""
+    connected = {}
+    # Status file of the site-to-site server, CLIENT LIST section: name,address,received,sent,since
+    proc = podman_exec("cat", "/etc/openvpn/run/s2s-status.log", container=S2S_CONTAINER, check=False)
+    section = False
+    for line in proc.stdout.splitlines():
+        if line.startswith("Common Name,"):
+            section = True
+        elif line.startswith("ROUTING TABLE"):
+            section = False
+        elif section:
+            fields = line.split(",")
+            if len(fields) >= 5:
+                connected[fields[0]] = fields[4]
+    return connected
+
+
+def leader_link(rdb):
+    """Address of the leader node on the link of this hub and whether that link is up, ("", False) when it did not join."""
+    leader_id = rdb.hget("cluster/environment", "NODE_ID")
+    entries = [(uuid, info) for uuid, info in current_spokes(rdb).items() if info["node_id"] == leader_id]
+    if not entries:
+        return "", False
+    connected = connected_spokes()
+    # A stale entry of the leader, left by a restore with a new uuid, must not hide the live one
+    for uuid, info in entries:
+        if uuid in connected:
+            return info["ip"], True
+    return entries[0][1]["ip"], False
 
 
 def current_hub(rdb):

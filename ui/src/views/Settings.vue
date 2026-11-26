@@ -22,26 +22,55 @@
     <cv-row v-if="configured">
       <cv-column>
         <cv-tile light>
-          <NsInlineNotification
-            kind="info"
-            :title="$t('settings.restrict_apps_title')"
-            :description="$t('settings.restrict_apps_description')"
-            :actionLabel="$t('settings.go_to_http_routes')"
-            @action="goToHttpRoutes"
-            :showCloseButton="false"
-            class="mg-bottom-sm maxwidth"
-          />
-          <NsCodeSnippet
-            :copyTooltip="core.$t('common.copy_to_clipboard')"
-            :copy-feedback="core.$t('common.copied_to_clipboard')"
-            :feedback-aria-label="core.$t('common.copied_to_clipboard')"
-            :wrap-text="true"
-            :moreText="core.$t('common.show_more')"
-            :lessText="core.$t('common.show_less')"
-            hideExpandButton
-            class="maxwidth"
-            >{{ ipAllowlist }}</NsCodeSnippet
-          >
+          <cv-grid full-width class="no-padding">
+            <cv-row>
+              <cv-column :lg="8" class="snippet-column">
+                <NsInlineNotification
+                  kind="info"
+                  :title="$t('settings.restrict_apps_title')"
+                  :description="$t('settings.restrict_apps_description')"
+                  :actionLabel="$t('settings.go_to_http_routes')"
+                  @action="goToHttpRoutes"
+                  :showCloseButton="false"
+                  class="mg-bottom-xs"
+                />
+                <cv-code-snippet
+                  kind="oneline"
+                  :feedback-aria-label="core.$t('common.copy_to_clipboard')"
+                  :copy-feedback="core.$t('common.copied_to_clipboard')"
+                  class="mg-bottom-sm"
+                  >{{ ipAllowlist }}</cv-code-snippet
+                >
+              </cv-column>
+              <cv-column
+                v-if="clusterAdminUrl || savedMode === 'hub'"
+                :lg="8"
+                class="snippet-column"
+              >
+                <NsInlineNotification
+                  kind="warning"
+                  :title="$t('settings.cluster_admin_title')"
+                  :description="
+                    clusterAdminUrl
+                      ? $t('settings.cluster_admin_through_vpn')
+                      : leaderLinkDown
+                      ? $t('settings.cluster_admin_leader_link_down')
+                      : $t('settings.cluster_admin_leader_not_joined')
+                  "
+                  :showCloseButton="false"
+                  class="mg-bottom-xs"
+                />
+                <cv-code-snippet
+                  v-if="clusterAdminUrl"
+                  kind="oneline"
+                  :feedback-aria-label="core.$t('common.copy_to_clipboard')"
+                  :copy-feedback="core.$t('common.copied_to_clipboard')"
+                  class="mg-bottom-sm"
+                  >{{ clusterAdminUrl }}</cv-code-snippet
+                >
+              </cv-column>
+            </cv-row>
+          </cv-grid>
         </cv-tile>
       </cv-column>
     </cv-row>
@@ -76,7 +105,9 @@
               {{ $t("settings.mode_" + mode + "_helper") }}
             </p>
             <template v-if="mode === 'spoke'">
+              <!-- Keys keep Vue from reusing this box for the user domain, with the hub label still typed in -->
               <NsComboBox
+                key="hub"
                 v-model="hub"
                 :options="hubOptions"
                 :autoFilter="true"
@@ -141,6 +172,18 @@
                   {{ $t("settings.network_tooltip") }}
                 </template>
               </NsTextInput>
+              <NsInlineNotification
+                v-if="networkSharedWith"
+                kind="warning"
+                :title="$t('settings.network_shared_title')"
+                :description="
+                  $t('settings.network_shared_description', {
+                    hub: networkSharedWith,
+                  })
+                "
+                :showCloseButton="false"
+                class="maxwidth"
+              />
               <label class="bx--label">{{ $t("settings.auth_mode") }}</label>
               <p v-if="hasAccounts" class="bx--form__helper-text mg-bottom-sm">
                 {{ $t("settings.auth_mode_locked") }}
@@ -161,6 +204,7 @@
               </cv-radio-group>
               <template v-if="authMode === 'certificate_password'">
                 <NsComboBox
+                  key="user_domain"
                   v-model="userDomain"
                   :options="userDomainOptions"
                   :autoFilter="true"
@@ -310,8 +354,12 @@ export default {
       sshPorts: [],
       sambaAvailable: false,
       ipAllowlist: "",
+      clusterAdminUrl: "",
+      leaderLinkDown: false,
       hasAccounts: false,
       mode: "hub",
+      // The note about cluster-admin follows the saved role, not the radio being edited
+      savedMode: "hub",
       hub: "",
       hubs: [],
       loading: {
@@ -335,6 +383,25 @@ export default {
     ...mapState(["instanceName", "core", "appName"]),
     stillLoading() {
       return this.loading.getConfiguration || this.loading.configureModule;
+    },
+    // Another hub whose network and link overlap this one: allowed, but the users cannot tell the two VPNs apart
+    networkSharedWith() {
+      const wanted = this.supernet(this.network);
+      if (!wanted) {
+        return "";
+      }
+      const other = this.hubs.find((hub) => {
+        const net = this.supernet(hub.network);
+        if (!net) {
+          return false;
+        }
+        const prefix = Math.min(wanted.prefix, net.prefix);
+        return (
+          this.maskAddress(wanted.address, prefix) ===
+          this.maskAddress(net.address, prefix)
+        );
+      });
+      return other ? other.module_id : "";
     },
     hubOptions() {
       return this.hubs.map((hub) => {
@@ -374,6 +441,26 @@ export default {
     next();
   },
   methods: {
+    // A hub takes its network and the one next to it: {address, prefix} of that pair, null if invalid
+    supernet(cidr) {
+      const match =
+        /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(
+          cidr || ""
+        );
+      if (!match) {
+        return null;
+      }
+      const bytes = match.slice(1, 5).map(Number);
+      const prefix = Number(match[5]);
+      if (bytes.some((b) => b > 255) || prefix < 1 || prefix > 32) {
+        return null;
+      }
+      const address = bytes.reduce((acc, b) => acc * 256 + b, 0);
+      return { address, prefix: prefix - 1 };
+    },
+    maskAddress(address, prefix) {
+      return Math.floor(address / 2 ** (32 - prefix));
+    },
     goToHttpRoutes() {
       this.core.$router.push("/settings/http-routes");
     },
@@ -410,14 +497,20 @@ export default {
       this.exposeSsh = config.expose_ssh;
       this.sshPorts = config.ssh_ports || [];
       this.ipAllowlist = config.ip_allowlist;
+      this.clusterAdminUrl = config.cluster_admin_url || "";
+      this.leaderLinkDown = config.leader_link_down || false;
       this.hasAccounts = config.has_accounts;
       this.mode = config.mode;
+      this.savedMode = config.mode;
       this.hubs = config.hubs;
       this.$nextTick(() => {
         this.hub = config.hub;
       });
       this.loading.getConfiguration = false;
-      this.focusElement(this.mode === "spoke" ? "hub" : "host");
+      // Focus opens the hub list over the form: only guide the first configuration
+      if (!this.configured) {
+        this.focusElement(this.mode === "spoke" ? "hub" : "host");
+      }
     },
     validateConfigureModule() {
       this.clearErrors(this);
@@ -573,6 +666,38 @@ export default {
 
 .mg-bottom-sm {
   margin-bottom: $spacing-04;
+}
+
+.mg-bottom-xs {
+  margin-bottom: $spacing-03;
+}
+
+.no-padding {
+  padding: 0;
+  // Keeps the lines short on wide screens, close to the width of the form below
+  max-width: 80rem;
+  margin-left: 0;
+}
+
+// Side by side, the snippets line up under notifications of the same height
+.snippet-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.snippet-column .bx--inline-notification {
+  flex-grow: 1;
+  max-width: none;
+  align-items: flex-start;
+}
+
+.snippet-column .bx--snippet {
+  max-width: none;
+}
+
+// The title stays above the text in both notifications, whatever the width
+.snippet-column ::v-deep .bx--inline-notification__text-wrapper {
+  flex-direction: column;
 }
 
 .maxwidth {

@@ -15,20 +15,7 @@ import ovpn_module as om
 rdb = agent.redis_connect(use_replica=True)
 leader_id = rdb.hget("cluster/environment", "NODE_ID")
 spokes = om.current_spokes(rdb) if om.mode() == "hub" else {}
-connected = {}
-if spokes:
-    # Status file of the site-to-site server, CLIENT LIST section: name,address,received,sent,since
-    proc = om.podman_exec("cat", "/etc/openvpn/run/s2s-status.log", container=om.S2S_CONTAINER, check=False)
-    section = False
-    for line in proc.stdout.splitlines():
-        if line.startswith("Common Name,"):
-            section = True
-        elif line.startswith("ROUTING TABLE"):
-            section = False
-        elif section:
-            fields = line.split(",")
-            if len(fields) >= 5:
-                connected[fields[0]] = fields[4]
+connected = om.connected_spokes() if spokes else {}
 
 json.dump([{
     "module_id": info["module_id"],

@@ -168,6 +168,18 @@ The host of the VPN server is never answered through the VPN, so a client can al
 
 See [Use the VPN](docs/network.md#use-the-vpn) to check that the traffic of a client goes through the tunnel.
 
+## Keep cluster-admin for the VPN
+
+cluster-admin runs on the leader node. Through the VPN it answers on the link address of that node, for example `https://10.8.1.2/cluster-admin/` with the network `10.8.0.0/24`. The Settings page of the hub shows this URL while the link of the leader is up. It warns instead when the leader is not a node of the hub or its link is down. The Nodes page and `list-spokes` give the address of every node: the leader is the one with `"leader": true`.
+
+To keep cluster-admin for the VPN clients, paste the VPN network in "Allow access from" of the `cluster-admin` HTTP route. The browser warns about the certificate on that URL: it is not made for an IP address. The FQDN of the leader works without the warning only when it is not the host of the VPN, see above.
+
+When the VPN is down, cluster-admin answers 403 to everyone. Keep SSH access to the leader. This command reads the route again and removes only its list, since `set-route` writes the whole route:
+
+    api-cli run module/traefik1/set-route --data "$(api-cli run module/traefik1/get-route --data '{"instance": "cluster-admin"}' | python3 -c 'import json,sys; r=json.load(sys.stdin); r["ip_allowlist"]=[]; print(json.dumps(r))')"
+
+Replace `traefik1` with the Traefik instance of the leader.
+
 ## Status
 
 `get-vpn-status` returns whether the server runs, the open sessions and the CA expiry date. The Sessions page lists the open sessions, refreshes every 30 seconds and can disconnect one.

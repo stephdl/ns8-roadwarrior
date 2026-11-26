@@ -42,6 +42,11 @@ Check if the spoke of the hub joined the link
     Should Be Equal    ${spokes}[0][ip]    10.66.1.2
     Wait Until Keyword Succeeds    60s    3s    Spoke is connected
 
+Check if the hub gives the URL of cluster-admin through the VPN
+    # The single node of the test is the leader
+    ${output} =    Run module action    get-configuration
+    Should Contain    ${output}    "cluster_admin_url": "https://10.66.1.2/cluster-admin/"
+
 Check if the hub reaches the node through the link
     ${output} =    Execute Command    runagent -m ${module_id} podman exec openvpn-server wget -q -S -O /dev/null http://10.66.1.2/ 2>&1 | head -1
     Should Contain    ${output}    HTTP/
